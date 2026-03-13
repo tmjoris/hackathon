@@ -9,6 +9,7 @@ import {
   Hexagon,
   TrendingUp,
 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Sidebar,
   SidebarContent,
@@ -32,7 +33,16 @@ const navItems = [
 ];
 
 export function AdminSidebar() {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
+  const { signOut, profile } = useAuth();
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } finally {
+      setLocation("/login");
+    }
+  };
 
   return (
     <Sidebar className="border-r border-slate-200">
@@ -77,16 +87,14 @@ export function AdminSidebar() {
 
       <SidebarFooter className="p-4 space-y-3">
         <div className="px-2 py-3 rounded-lg bg-purple-50 border border-purple-100">
-          <p className="text-xs font-semibold text-purple-800">Dorcas Kimani</p>
+          <p className="text-xs font-semibold text-purple-800">{profile?.full_name || "Admin"}</p>
           <p className="text-[11px] text-purple-500 mt-0.5">Platform Administrator</p>
         </div>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild className="text-slate-500 hover:text-destructive">
-              <Link href="/login">
-                <LogOut className="w-5 h-5" />
-                <span>Sign Out</span>
-              </Link>
+            <SidebarMenuButton className="text-slate-500 hover:text-destructive w-full" onClick={handleSignOut}>
+              <LogOut className="w-5 h-5" />
+              <span>Sign Out</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

@@ -2,13 +2,15 @@ import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AuthProvider } from "@/contexts/AuthContext";
 import NotFound from "@/pages/not-found";
 
 // Landing
 import Landing from "@/pages/landing";
 
-// Student pages
+// Auth
 import Login from "@/pages/login";
+import SignUp from "@/pages/signup";
 import Dashboard from "@/pages/dashboard";
 import Courses from "@/pages/courses";
 import CourseDetail from "@/pages/course-detail";
@@ -26,6 +28,7 @@ import AdminMarket from "@/pages/admin/market";
 // Instructor pages
 import InstructorDashboard from "@/pages/instructor/dashboard";
 import InstructorCourses from "@/pages/instructor/courses";
+import InstructorCourseDetail from "@/pages/instructor/course-detail";
 import InstructorStudents from "@/pages/instructor/students";
 import InstructorTickets from "@/pages/instructor/tickets";
 import InstructorEarnings from "@/pages/instructor/earnings";
@@ -45,6 +48,7 @@ function Router() {
       {/* Landing & Auth */}
       <Route path="/" component={Landing} />
       <Route path="/login" component={Login} />
+      <Route path="/signup" component={SignUp} />
 
       {/* Student */}
       <Route path="/dashboard" component={Dashboard} />
@@ -64,6 +68,7 @@ function Router() {
       {/* Instructor */}
       <Route path="/instructor/dashboard" component={InstructorDashboard} />
       <Route path="/instructor/courses" component={InstructorCourses} />
+      <Route path="/instructor/courses/:id" component={InstructorCourseDetail} />
       <Route path="/instructor/students" component={InstructorStudents} />
       <Route path="/instructor/tickets" component={InstructorTickets} />
       <Route path="/instructor/earnings" component={InstructorEarnings} />
@@ -76,12 +81,14 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
-        <Toaster />
-      </TooltipProvider>
+      <AuthProvider>
+        <TooltipProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <Router />
+          </WouterRouter>
+          <Toaster />
+        </TooltipProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

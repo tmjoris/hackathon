@@ -1,13 +1,14 @@
 import { Link, useLocation } from "wouter";
-import { 
-  LayoutDashboard, 
-  BookOpen, 
-  Briefcase, 
-  User, 
+import {
+  LayoutDashboard,
+  BookOpen,
+  Briefcase,
+  User,
   Flame,
   LogOut,
-  Hexagon
+  Hexagon,
 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Sidebar,
   SidebarContent,
@@ -29,7 +30,16 @@ const navItems = [
 ];
 
 export function AppSidebar() {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
+  const { signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } finally {
+      setLocation("/login");
+    }
+  };
 
   return (
     <Sidebar className="border-r border-slate-200">
@@ -72,11 +82,12 @@ export function AppSidebar() {
       <SidebarFooter className="p-4">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild className="text-slate-500 hover:text-destructive">
-              <Link href="/login">
-                <LogOut className="w-5 h-5" />
-                <span>Sign Out</span>
-              </Link>
+            <SidebarMenuButton
+              className="text-slate-500 hover:text-destructive w-full"
+              onClick={handleSignOut}
+            >
+              <LogOut className="w-5 h-5" />
+              <span>Sign Out</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

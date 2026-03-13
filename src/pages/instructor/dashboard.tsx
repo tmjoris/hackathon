@@ -6,12 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { instructorUser, instructorCourses, studentEnrollments, ticketPerformance } from "@/lib/instructor-data";
+import { instructorUser, studentEnrollments, ticketPerformance } from "@/lib/instructor-data";
+import { useInstructorCourses } from "@/hooks/use-app-data";
 
 const containerVariants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.08 } } };
 const itemVariants = { hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 280, damping: 24 } } };
 
 export default function InstructorDashboard() {
+  const { data: instructorCourses = [], isLoading } = useInstructorCourses();
   const liveCourse = instructorCourses.find(c => c.status === "Live");
   const atRiskStudents = studentEnrollments.filter(s => s.status === "At Risk");
   const weakestTicket = [...ticketPerformance].sort((a, b) => a.passRate - b.passRate)[0];

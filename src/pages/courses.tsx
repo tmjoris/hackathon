@@ -1,9 +1,10 @@
-import { useState } from "react";
-import { Link } from "wouter";
+import { useEffect, useState } from "react";
+import { Link, useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { Search, Filter, Briefcase, Layers, ArrowRight } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { useCourses } from "@/hooks/use-app-data";
+import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -12,9 +13,19 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Courses() {
+  const { profile } = useAuth();
+  const [, setLocation] = useLocation();
   const { data: courses, isLoading } = useCourses();
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    if (profile?.role === "instructor") {
+      setLocation("/instructor/courses");
+    } else if (profile?.role === "admin") {
+      setLocation("/admin/courses");
+    }
+  }, [profile?.role, setLocation]);
 
   const filteredCourses = courses?.filter(c => {
     if (filter !== "All" && c.category !== filter) return false;

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useLocation, Link } from "wouter";
 import { motion } from "framer-motion";
-import { Hexagon, ArrowRight, ChevronDown } from "lucide-react";
+import { Hexagon, ArrowRight } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,19 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/lib/supabase-client";
 
-const DEMO_ACCOUNTS = [
-  { label: "Student", email: "student@fieldwork.io", role: "Student Portal" },
-  { label: "Admin", email: "admin@fieldwork.io", role: "Admin Portal" },
-  { label: "Instructor", email: "instructor@fieldwork.io", role: "Instructor Portal" },
-];
-
-export default function Login() {
+export default function SignUp() {
   const [, setLocation] = useLocation();
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showAccounts, setShowAccounts] = useState(false);
+  const [fullName, setFullName] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,28 +27,60 @@ export default function Login() {
     }
     setIsLoading(true);
     try {
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+      const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: { full_name: fullName.trim() || undefined },
+        },
       });
-      if (signInError) {
-        setError(signInError.message ?? "Invalid email or password.");
+      if (signUpError) {
+        setError(signUpError.message ?? "Sign up failed.");
         setIsLoading(false);
         return;
       }
-      if (!data.user) {
-        setError("Sign in failed. Please try again.");
-        setIsLoading(false);
+      if (data.user && data.session) {
+        // Immediately redirect to the main dashboard; AuthContext will handle profile loading.
+        setLocation("/dashboard");
         return;
       }
-      // Redirect to the main dashboard; AuthContext will load profile/role.
-      setLocation("/dashboard");
+      setSuccess(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
       setIsLoading(false);
     }
   };
+
+  if (success) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-slate-50 relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-3xl" />
+          <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-400/5 rounded-full blur-3xl" />
+        </div>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full max-w-md z-10 px-4"
+        >
+          <Card className="border-0 shadow-xl shadow-slate-200/50 bg-white/80 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="text-xl">Check your email</CardTitle>
+              <CardDescription>
+                We sent a confirmation link to <strong>{email}</strong>. Click it to activate your account, then sign in.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href="/login">
+                <Button className="w-full">Go to sign in</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-slate-50 relative overflow-hidden">
@@ -73,13 +100,13 @@ export default function Login() {
             <Hexagon className="w-7 h-7 fill-current" />
           </div>
           <h1 className="font-display text-3xl font-bold text-slate-900 tracking-tight">Fieldwork</h1>
-          <p className="text-slate-500 mt-1">Real work. Real proof.</p>
+          <p className="text-slate-500 mt-1">Create your account.</p>
         </div>
 
         <Card className="border-0 shadow-xl shadow-slate-200/50 bg-white/80 backdrop-blur-sm">
           <CardHeader>
-            <CardTitle className="text-xl">Welcome back</CardTitle>
-            <CardDescription>Sign in with your email and password.</CardDescription>
+            <CardTitle className="text-xl">Sign up</CardTitle>
+            <CardDescription>Enter your details to create an account. You’ll start as a student.</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-5">
@@ -89,6 +116,18 @@ export default function Login() {
                 </Alert>
               )}
               <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="fullName">Full name (optional)</Label>
+                  <Input
+                    id="fullName"
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    autoComplete="name"
+                    className="bg-white"
+                    placeholder="Jane Doe"
+                  />
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
@@ -103,64 +142,20 @@ export default function Login() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="password">Password</Label>
-                    <a href="#" className="text-sm text-primary hover:underline font-medium">Forgot?</a>
-                  </div>
+                  <Label htmlFor="password">Password</Label>
                   <Input
                     id="password"
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    autoComplete="current-password"
+                    minLength={6}
+                    autoComplete="new-password"
                     className="bg-white"
                     placeholder="••••••••"
                   />
+                  <p className="text-xs text-slate-500">At least 6 characters.</p>
                 </div>
-              </div>
-
-              {/* Quick-fill example emails */}
-              <div className="rounded-lg border border-slate-100 bg-slate-50 overflow-hidden text-xs">
-                <button
-                  type="button"
-                  onClick={() => setShowAccounts((v) => !v)}
-                  className="w-full flex items-center justify-between px-3 py-2.5 text-left text-slate-600 hover:bg-slate-100 transition-colors"
-                >
-                  <span><span className="font-semibold text-slate-700">Example emails</span> — click to fill:</span>
-                  <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showAccounts ? "rotate-180" : ""}`} />
-                </button>
-                {showAccounts && (
-                  <div className="border-t border-slate-100 divide-y divide-slate-100">
-                    {DEMO_ACCOUNTS.map((acc) => (
-                      <button
-                        key={acc.email}
-                        type="button"
-                        onClick={() => {
-                          setEmail(acc.email);
-                          setShowAccounts(false);
-                        }}
-                        className={`w-full flex items-center justify-between px-3 py-2 text-left hover:bg-white transition-colors ${email === acc.email ? "bg-white" : ""}`}
-                      >
-                        <div>
-                          <span className="font-medium text-slate-800">{acc.label}</span>
-                          <span className="ml-2 text-slate-400">{acc.email}</span>
-                        </div>
-                        <span
-                          className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
-                            acc.label === "Student"
-                              ? "bg-blue-100 text-blue-700"
-                              : acc.label === "Admin"
-                                ? "bg-purple-100 text-purple-700"
-                                : "bg-emerald-100 text-emerald-700"
-                          }`}
-                        >
-                          {acc.role}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
 
               <Button
@@ -168,15 +163,15 @@ export default function Login() {
                 className="w-full h-11 text-base shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all"
                 disabled={isLoading}
               >
-                {isLoading ? "Signing in..." : "Sign In"}
+                {isLoading ? "Creating account..." : "Sign up"}
                 {!isLoading && <ArrowRight className="ml-2 w-4 h-4" />}
               </Button>
 
               <p className="text-center text-sm text-slate-500">
-                Don&apos;t have an account?{" "}
-                <Link href="/signup" className="text-primary font-medium hover:underline">
-                  Sign up
-                </Link>
+                Already have an account?{" "}
+                <Link href="/login">
+                <span className="text-primary font-medium hover:underline">Sign in</span>
+              </Link>
               </p>
             </form>
           </CardContent>
