@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Fieldwork"
+version = "1.0.0"
+id = "artifacts/fieldwork"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+localPort = 19046
+name = "web"
+paths = ["/"]
+
+[services.development]
+run = "pnpm --filter @workspace/fieldwork run dev"
+
+[services.env]
+PORT = "19046"
+BASE_PATH = "/"
+
+[services.production]
+build = ["pnpm", "--filter", "@workspace/fieldwork", "run", "build"]
+publicDir = "artifacts/fieldwork/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"

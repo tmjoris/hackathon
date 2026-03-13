@@ -1,0 +1,23 @@
+packages:
+  "framer-motion": "For page transitions, subtle entry animations, and interactive component feedback"
+  "canvas-confetti": "For celebratory micro-interactions when a student completes a work ticket"
+  "@types/canvas-confetti": "TypeScript definitions for canvas-confetti"
+  "date-fns": "For elegant date formatting on the profile and streaks pages"
+  "clsx": "Utility for constructing className strings conditionally"
+  "tailwind-merge": "Utility for merging tailwind classes without style conflicts"
+  "react-hook-form": "Form state management"
+  "@hookform/resolvers": "Zod resolver for forms"
+  "zod": "Schema validation for forms"
+
+images:
+  - path: "artifacts/fieldwork/public/images/logo.png"
+    description: "A minimal, geometric logo mark for 'Fieldwork' in deep navy blue. Professional, structured, representing career growth and solid foundations. Transparent background."
+    aspect_ratio: "1:1"
+  - path: "artifacts/fieldwork/public/images/auth-bg.png"
+    description: "An abstract, soft gradient mesh in very light slate and pale blue. Corporate, clean, and trustworthy, with subtle geometric glassmorphism elements."
+    aspect_ratio: "16:9"
+
+notes:
+  - Pure static frontend application with mocked data simulating an API.
+  - No actual backend endpoints are queried.
+  - The login accepts any credentials and immediately creates a mock session.

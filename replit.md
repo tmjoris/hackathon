@@ -21,7 +21,8 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 ```text
 artifacts-monorepo/
 ├── artifacts/              # Deployable applications
-│   └── api-server/         # Express API server
+│   ├── api-server/         # Express API server
+│   └── fieldwork/          # Fieldwork student platform (React + Vite, pure static)
 ├── lib/                    # Shared libraries
 │   ├── api-spec/           # OpenAPI spec + Orval codegen config
 │   ├── api-client-react/   # Generated React Query hooks
@@ -34,6 +35,29 @@ artifacts-monorepo/
 ├── tsconfig.json           # Root TS project references
 └── package.json            # Root package with hoisted devDeps
 ```
+
+## Fieldwork Platform
+
+**Name**: Fieldwork — "Real work. Real proof."
+
+A static student platform for proof-of-work learning. Students receive work tickets (real-world tasks) instead of video lectures.
+
+### Features
+- Login (any password works — static demo, default: student@fieldwork.io)
+- Student Dashboard with streak tracker, fee refund progress, active courses
+- Course Catalog (8 demo courses: Tech, Finance, Business, Design)
+- Course Detail with sprint accordion and ticket status
+- Work Ticket View with scenario, deliverables checklist, submission workspace
+- Profile / Proof-of-Work with LinkedIn post template generator
+- Streaks with 90-day activity heatmap and milestone badges
+
+### Tech
+- React + Vite (`artifacts/fieldwork/`)
+- Static mock data in `src/lib/mock-data.ts`
+- TanStack Query with simulated delays for realistic loading states
+- Framer Motion animations
+- Shadcn/UI components + Tailwind CSS
+- Light theme, professional corporate design
 
 ## TypeScript & Composite Projects
 
@@ -49,6 +73,10 @@ Every package extends `tsconfig.base.json` which sets `composite: true`. The roo
 - `pnpm run typecheck` — runs `tsc --build --emitDeclarationOnly` using project references
 
 ## Packages
+
+### `artifacts/fieldwork` (`@workspace/fieldwork`)
+
+Fieldwork student platform. Pure static React app. All data is mocked in `src/lib/mock-data.ts`.
 
 ### `artifacts/api-server` (`@workspace/api-server`)
 
