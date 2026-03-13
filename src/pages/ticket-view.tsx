@@ -65,11 +65,11 @@ export default function TicketView() {
 
   if (courseLoading || ticketLoading || !ticket || !course) {
     return (
-      <div className="min-h-screen bg-slate-50 p-6">
-        <Skeleton className="h-6 w-48 mb-8" />
+      <div className="min-h-screen bg-background p-6">
+        <Skeleton className="h-6 w-48 mb-8 bg-secondary border-2 border-border rounded-none" />
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <Skeleton className="h-[600px] rounded-2xl" />
-          <Skeleton className="h-[600px] rounded-2xl" />
+          <Skeleton className="h-[600px] rounded-none bg-secondary border-2 border-border" />
+          <Skeleton className="h-[600px] rounded-none bg-secondary border-2 border-border" />
         </div>
       </div>
     );
@@ -82,24 +82,24 @@ export default function TicketView() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-[calc(100vh-3.5rem)] bg-background flex flex-col">
       {/* Top Navigation Bar */}
-      <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between shrink-0 sticky top-0 z-10">
+      <header className="h-16 bg-background border-b-2 border-border px-6 flex items-center justify-between shrink-0 sticky top-0 z-10 shadow-[0_4px_0_0_rgba(0,0,0,0.5)]">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" asChild className="text-slate-500 hover:text-slate-900">
+          <Button variant="ghost" size="sm" asChild className="text-muted-foreground hover:text-foreground font-bold rounded-none hover:bg-secondary transition-colors">
             <Link href={`/courses/${courseId}`}>
               <ArrowLeft className="w-4 h-4 mr-2" /> Back to {course.title}
             </Link>
           </Button>
         </div>
-        <div className="flex items-center gap-3">
-          <Badge variant="outline" className="bg-slate-50 font-medium">
-            <Clock className="w-3.5 h-3.5 mr-1.5 text-slate-400" />
+        <div className="flex items-center gap-4">
+          <Badge variant="outline" className="bg-background border-2 border-border text-foreground font-bold rounded-none px-3 py-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)]">
+            <Clock className="w-4 h-4 mr-2 text-primary" />
             Est. {ticket.durationEstimate}
           </Badge>
           {ticket.isUrgent && (
-            <Badge className="bg-red-50 text-red-600 border-red-100 shadow-none">
-              <AlertCircle className="w-3.5 h-3.5 mr-1.5" /> Urgent
+            <Badge className="bg-destructive text-destructive-foreground border-2 border-foreground rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)] px-3 py-1 font-bold uppercase tracking-wider">
+              <AlertCircle className="w-4 h-4 mr-2" /> Urgent
             </Badge>
           )}
         </div>
@@ -107,38 +107,42 @@ export default function TicketView() {
 
       {/* Main Workspace */}
       <main className="flex-1 overflow-hidden p-4 md:p-6 lg:p-8">
-        <div className="max-w-7xl mx-auto h-full grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+        <div className="max-w-7xl mx-auto h-full grid grid-cols-1 lg:grid-cols-12 gap-8">
           
           {/* Left Column: Context & Task */}
-          <div className="lg:col-span-5 flex flex-col h-full space-y-6 overflow-y-auto pr-2 pb-8 lg:pb-0">
+          <div className="lg:col-span-5 flex flex-col h-full space-y-6 overflow-y-auto pr-2 pb-8 lg:pb-0 scrollbar-thin scrollbar-thumb-secondary scrollbar-track-background">
             <div>
-              <div className="text-sm font-bold text-primary uppercase tracking-wider mb-2">{ticket.type} Ticket</div>
-              <h1 className="text-2xl md:text-3xl font-display font-bold text-slate-900 leading-tight">
+              <div className="text-sm font-bold text-primary uppercase tracking-wider mb-3 underline decoration-primary decoration-2 underline-offset-4">{ticket.type} Ticket</div>
+              <h1 className="text-3xl md:text-4xl font-display font-bold text-foreground leading-tight">
                 {ticket.title}
               </h1>
             </div>
 
-            <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-              <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">The Scenario</h2>
-              <p className="text-slate-700 leading-relaxed text-[15px]">
+            <div className="bg-background rounded-none p-6 border-2 border-border shadow-[4px_4px_0px_0px_rgba(0,0,0,0.5)]">
+              <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
+                <div className="w-2 h-2 bg-primary"></div> The Scenario
+              </h2>
+              <p className="text-foreground font-medium leading-relaxed text-base">
                 {ticket.scenario || "A standard operational request has been assigned to you. Review the required deliverables and submit your structured work."}
               </p>
             </div>
 
-            <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex-1">
-              <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Required Deliverables</h2>
+            <div className="bg-secondary/30 rounded-none p-6 border-2 border-border shadow-[4px_4px_0px_0px_rgba(0,0,0,0.5)] flex-1">
+              <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-5 flex items-center gap-2">
+                <div className="w-2 h-2 bg-success"></div> Required Deliverables
+              </h2>
               <div className="space-y-4">
                 {deliverablesList.map((item, idx) => (
-                  <div key={idx} className="flex items-start gap-3">
+                  <div key={idx} className="flex items-start gap-4">
                     <Checkbox 
                       id={`chk-${idx}`} 
-                      className="mt-0.5 rounded-[4px] data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500"
+                      className="mt-1 rounded-none border-2 border-foreground data-[state=checked]:bg-success data-[state=checked]:text-success-foreground data-[state=checked]:border-foreground w-5 h-5"
                       checked={checkedItems[idx] || false}
                       onCheckedChange={(checked) => setCheckedItems(prev => ({...prev, [idx]: !!checked}))}
                     />
                     <label 
                       htmlFor={`chk-${idx}`} 
-                      className={`text-sm leading-snug cursor-pointer transition-colors ${checkedItems[idx] ? 'text-slate-400 line-through' : 'text-slate-700 font-medium'}`}
+                      className={`text-base leading-snug cursor-pointer transition-colors font-bold ${checkedItems[idx] ? 'text-muted-foreground line-through opacity-70' : 'text-foreground'}`}
                     >
                       {item}
                     </label>
@@ -149,33 +153,35 @@ export default function TicketView() {
           </div>
 
           {/* Right Column: Workspace */}
-          <div className="lg:col-span-7 flex flex-col h-full bg-white rounded-2xl border border-slate-200 shadow-md overflow-hidden relative">
-            <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center shrink-0">
-              <span className="font-semibold text-slate-700">Your Workspace</span>
+          <div className="lg:col-span-7 flex flex-col h-full bg-background rounded-none border-2 border-border shadow-[8px_8px_0px_0px_rgba(0,0,0,0.5)] relative">
+            <div className="p-4 border-b-2 border-border bg-secondary flex justify-between items-center shrink-0">
+              <span className="font-bold text-foreground uppercase tracking-wider text-sm flex items-center gap-2">
+                <div className="w-3 h-3 bg-foreground rounded-none"></div> Your Workspace
+              </span>
             </div>
             
-            <div className="flex-1 p-0 relative">
+            <div className="flex-1 p-0 relative bg-background">
               <Textarea 
                 placeholder="Structure your solution, code, or analysis here..."
-                className="w-full h-full min-h-[400px] border-0 focus-visible:ring-0 rounded-none resize-none p-6 text-base text-slate-800 placeholder:text-slate-300 leading-relaxed font-mono"
+                className="w-full h-full min-h-[400px] border-0 focus-visible:ring-0 rounded-none resize-none p-6 text-base text-foreground bg-background placeholder:text-muted-foreground leading-relaxed font-mono focus:bg-secondary/10 transition-colors"
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
               />
             </div>
 
-            <div className="p-4 border-t border-slate-100 bg-slate-50/50 shrink-0 flex items-center justify-between">
-              <p className="text-xs text-slate-500 font-medium">
-                {content.length > 0 ? `${content.length} characters` : "Waiting for input..."}
+            <div className="p-4 border-t-2 border-border bg-secondary shrink-0 flex items-center justify-between">
+              <p className="text-sm text-foreground font-bold">
+                {content.length > 0 ? <span className="text-primary">{content.length} characters</span> : <span className="text-muted-foreground">Waiting for input...</span>}
               </p>
               <Button 
                 onClick={handleSubmit}
                 disabled={!isFormValid || submitMutation.isPending}
-                className="shadow-md shadow-primary/20 hover:shadow-lg transition-all min-w-[140px]"
+                className="rounded-none border-2 border-foreground bg-primary text-primary-foreground font-bold shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] hover:shadow-none hover:translate-x-1 hover:translate-y-1 transition-all min-w-[160px] h-12"
               >
                 {submitMutation.isPending ? (
-                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Submitting...</>
+                  <><Loader2 className="w-5 h-5 mr-3 animate-spin" /> Submitting...</>
                 ) : (
-                  <><CheckCircle2 className="w-4 h-4 mr-2" /> Submit Work</>
+                  <><CheckCircle2 className="w-5 h-5 mr-3" /> Submit Work</>
                 )}
               </Button>
             </div>
@@ -186,24 +192,24 @@ export default function TicketView() {
 
       {/* Success Modal */}
       <Dialog open={showSuccess} onOpenChange={setShowSuccess}>
-        <DialogContent className="sm:max-w-md text-center p-8 rounded-3xl border-0 shadow-2xl">
-          <div className="mx-auto w-16 h-16 bg-emerald-100 text-emerald-500 rounded-full flex items-center justify-center mb-6">
-            <Trophy className="w-8 h-8" />
+        <DialogContent className="sm:max-w-md text-center p-8 rounded-none border-4 border-foreground shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] bg-background">
+          <div className="mx-auto w-20 h-20 bg-success text-success-foreground border-4 border-foreground rounded-none flex items-center justify-center mb-8 transform -rotate-6 shadow-[4px_4px_0px_0px_rgba(255,255,255,1)]">
+            <Trophy className="w-10 h-10" />
           </div>
           <DialogHeader>
-            <DialogTitle className="text-2xl font-display font-bold text-center">Ticket Completed!</DialogTitle>
+            <DialogTitle className="text-3xl font-display font-bold text-center text-foreground uppercase tracking-wide">Ticket Completed!</DialogTitle>
           </DialogHeader>
-          <div className="py-4">
-            <p className="text-slate-500 mb-6 text-[15px]">
+          <div className="py-6">
+            <p className="text-muted-foreground mb-8 text-lg font-medium">
               Excellent work. Your solution has been recorded and verified. You're building a solid proof-of-work portfolio.
             </p>
-            <div className="inline-flex items-center gap-2 bg-amber-50 px-4 py-2 rounded-full border border-amber-100 text-amber-700 font-bold mb-2">
-              <Flame className="w-4 h-4" /> Streak extended to 13 days!
+            <div className="inline-flex items-center gap-3 bg-secondary/50 px-6 py-3 rounded-none border-2 border-border text-foreground font-bold mb-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)]">
+              <Flame className="w-6 h-6 text-primary fill-primary" /> <span className="uppercase tracking-wider">Streak extended to 13 days!</span>
             </div>
           </div>
           <DialogFooter className="sm:justify-center">
-            <Button size="lg" onClick={handleNext} className="w-full sm:w-auto shadow-lg shadow-primary/20">
-              Continue Course <ArrowRight className="w-4 h-4 ml-2" />
+            <Button size="lg" onClick={handleNext} className="w-full sm:w-auto font-bold bg-primary text-primary-foreground hover:bg-primary/90 border-2 border-foreground rounded-none px-8 shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] hover:shadow-none hover:translate-x-1 hover:translate-y-1 transition-all h-14 text-lg">
+              Continue Course <ArrowRight className="w-5 h-5 ml-3" />
             </Button>
           </DialogFooter>
         </DialogContent>
