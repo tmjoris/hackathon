@@ -74,6 +74,24 @@ export function useSubmitTicket() {
   return useMutation({
     mutationFn: async ({ courseId, ticketId, content }: { courseId: string, ticketId: string, content: string }) => {
       await delay(1200); // Simulate upload/processing
+      
+      const course = mockCourses.find(c => c.id === courseId);
+      if (course) {
+        for (const sprint of course.sprints) {
+          const index = sprint.tickets.findIndex(t => t.id === ticketId);
+          if (index !== -1) {
+            // Mark current as completed
+            sprint.tickets[index].status = "Completed";
+            
+            // Unlock next one directly below it
+            if (index + 1 < sprint.tickets.length && sprint.tickets[index + 1].status === "Locked") {
+              sprint.tickets[index + 1].status = "Active";
+            }
+            break;
+          }
+        }
+      }
+
       return { success: true, xpEarned: 150 };
     },
     onSuccess: (_, variables) => {
