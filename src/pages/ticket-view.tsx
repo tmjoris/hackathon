@@ -25,9 +25,10 @@ export default function TicketView() {
   const courseId = params?.courseId || "";
   const ticketId = params?.ticketId || "";
   
-  const { data: course, isLoading: courseLoading } = useCourse(courseId);
-  const { data: ticket, isLoading: ticketLoading } = useTicket(courseId, ticketId);
+  const { data: course, isLoading: courseLoading, isError: courseError } = useCourse(courseId);
+  const { data: ticket, isLoading: ticketLoading, isError: ticketError } = useTicket(courseId, ticketId);
   const submitMutation = useSubmitTicket();
+  const isError = courseError || ticketError;
 
   const [content, setContent] = useState("");
   const [showSuccess, setShowSuccess] = useState(false);
@@ -62,6 +63,20 @@ export default function TicketView() {
     setShowSuccess(false);
     setLocation(`/courses/${courseId}`);
   };
+
+  if (isError) {
+    return (
+      <div className="min-h-screen bg-slate-50 p-6 flex flex-col items-center justify-center gap-4">
+        <h1 className="text-xl font-bold text-slate-900">Ticket not found</h1>
+        <p className="text-slate-500 text-center">This ticket may not exist or you may not have access to it.</p>
+        <Button variant="outline" asChild>
+          <Link href={courseId ? `/courses/${courseId}` : "/courses"}>
+            <ArrowLeft className="w-4 h-4 mr-2" /> Back to course
+          </Link>
+        </Button>
+      </div>
+    );
+  }
 
   if (courseLoading || ticketLoading || !ticket || !course) {
     return (

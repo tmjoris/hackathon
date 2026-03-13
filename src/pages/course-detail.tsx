@@ -19,7 +19,7 @@ import {
 export default function CourseDetail() {
   const [, params] = useRoute("/courses/:id");
   const courseId = params?.id || "";
-  const { data: course, isLoading } = useCourse(courseId);
+  const { data: course, isLoading, isError, error } = useCourse(courseId);
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
 
@@ -31,6 +31,20 @@ export default function CourseDetail() {
     setSheetOpen(false);
     setSelectedTicketId(null);
   };
+
+  if (isError) {
+    return (
+      <MainLayout>
+        <div className="p-8 max-w-4xl mx-auto text-center space-y-4">
+          <h1 className="text-xl font-bold text-slate-900">Course not found</h1>
+          <p className="text-slate-500">{error instanceof Error ? error.message : "Something went wrong."}</p>
+          <Link href="/courses" className="inline-flex items-center text-sm font-medium text-primary hover:underline">
+            <ArrowLeft className="w-4 h-4 mr-1" /> Back to Course Catalog
+          </Link>
+        </div>
+      </MainLayout>
+    );
+  }
 
   if (isLoading || !course) {
     return (

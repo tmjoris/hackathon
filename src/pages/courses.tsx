@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { motion } from "framer-motion";
-import { Search, Filter, Briefcase, Layers, ArrowRight } from "lucide-react";
+import { Search, Briefcase, Layers } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
-import { useCourses } from "@/hooks/use-app-data";
+import { useCourses, useEnrollCourse } from "@/hooks/use-app-data";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -13,11 +14,14 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Courses() {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
   const { data: courses, isLoading } = useCourses();
+  const enrollCourse = useEnrollCourse();
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
+  const [enrollingId, setEnrollingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (profile?.role === "instructor") {
@@ -129,8 +133,41 @@ export default function Courses() {
                         <Link href={`/courses/${course.id}`}>Continue</Link>
                       </Button>
                     ) : (
-                      <Button size="sm" variant="outline" className="bg-white border-slate-200 hover:border-primary hover:text-primary">
-                        Enroll Now
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="bg-white border-slate-200 hover:border-primary hover:text-primary"
+                        disabled={!user || enrollingId === course.id}
+                        onClick={() => {
+                          if (!user) {
+                            toast({
+                              title: "Sign in required",
+                              description: "Please sign in to enroll in a course.",
+                              variant: "destructive",
+                            });
+                            return;
+                          }
+                          setEnrollingId(course.id);
+                          enrollCourse.mutate(course.id, {
+                            onSuccess: () => {
+                              setEnrollingId(null);
+                              toast({
+                                title: "Enrolled",
+                                description: `You're now enrolled in ${course.title}.`,
+                              });
+                            },
+                            onError: (err) => {
+                              setEnrollingId(null);
+                              toast({
+                                title: "Enrollment failed",
+                                description: err instanceof Error ? err.message : "Something went wrong.",
+                                variant: "destructive",
+                              });
+                            },
+                          });
+                        }}
+                      >
+                        {enrollingId === course.id ? "Enrolling…" : "Enroll Now"}
                       </Button>
                     )}
                   </CardFooter>
