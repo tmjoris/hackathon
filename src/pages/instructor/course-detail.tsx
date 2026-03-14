@@ -12,6 +12,8 @@ import {
   ChevronDown,
   ChevronRight,
   Eye,
+  Pencil,
+  Send,
 } from "lucide-react";
 
 import { InstructorLayout } from "@/components/layout/instructor-layout";
@@ -22,7 +24,12 @@ import {
   type InstructorSprintWithTickets,
   useUploadCourseMaterial,
   useCreateSprint,
+  useUpdateCourse,
+  useSubmitCourseForReview,
+  type UpdateCoursePayload,
 } from "@/hooks/use-app-data";
+import type { CourseCategory, Difficulty } from "@/lib/domain-types";
+import { useToast } from "@/hooks/use-toast";
 import { useGenerateSprintTickets } from "@/lib/api/ai";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +38,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type SprintCardProps = {
   courseId: string;
@@ -245,6 +266,9 @@ function SprintCard({ courseId, sprint, materials, onTicketClick }: SprintCardPr
   );
 }
 
+const CATEGORIES: CourseCategory[] = ["Tech", "Business", "Design", "Finance"];
+const DIFFICULTIES: Difficulty[] = ["Beginner", "Intermediate", "Advanced"];
+
 export default function InstructorCourseDetail() {
   const [, params] = useRoute("/instructor/courses/:id");
   const courseId = params?.id ?? null;
@@ -252,6 +276,9 @@ export default function InstructorCourseDetail() {
   const { data, isLoading } = useInstructorCourseDetail(courseId);
   const uploadMutation = useUploadCourseMaterial();
   const createSprintMutation = useCreateSprint();
+  const updateCourseMutation = useUpdateCourse(courseId);
+  const submitForReviewMutation = useSubmitCourseForReview(courseId);
+  const { toast } = useToast();
 
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [materialTitle, setMaterialTitle] = useState("");
@@ -261,6 +288,13 @@ export default function InstructorCourseDetail() {
   const [newSprintDescription, setNewSprintDescription] = useState("");
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [editSheetOpen, setEditSheetOpen] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editCategory, setEditCategory] = useState<CourseCategory>("Tech");
+  const [editDifficulty, setEditDifficulty] = useState<Difficulty>("Beginner");
+  const [editFee, setEditFee] = useState("");
+  const [editCompanyPartner, setEditCompanyPartner] = useState("");
 
   const openTicketDetail = (ticketId: string) => {
     setSelectedTicketId(ticketId);
@@ -271,6 +305,58 @@ export default function InstructorCourseDetail() {
     setSelectedTicketId(null);
   };
   const [showSprintForm, setShowSprintForm] = useState(false);
+
+  const openEditSheet = () => {
+    if (!data) return;
+    setEditTitle(data.title);
+    setEditDescription(data.description ?? "");
+    setEditCategory((data.category as CourseCategory) ?? "Tech");
+    setEditDifficulty((data.difficulty as Difficulty) ?? "Beginner");
+    setEditFee(String(data.fee_amount ?? 1000));
+    setEditCompanyPartner(data.company_partner ?? "");
+    setEditSheetOpen(true);
+  };
+
+  const handleEditSave = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!courseId) return;
+    const payload: UpdateCoursePayload = {
+      title: editTitle.trim(),
+      description: editDescription.trim() || undefined,
+      category: editCategory,
+      difficulty: editDifficulty,
+      fee_amount: Number(editFee),
+      company_partner: editCompanyPartner.trim() || null,
+    };
+    try {
+      await updateCourseMutation.mutateAsync(payload);
+      setEditSheetOpen(false);
+      toast({ title: "Course updated", description: "Your changes have been saved." });
+    } catch (err) {
+      toast({
+        title: "Update failed",
+        description: err instanceof Error ? err.message : "Something went wrong.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSubmitForReview = async () => {
+    if (!courseId) return;
+    try {
+      await submitForReviewMutation.mutateAsync();
+      toast({
+        title: "Submitted for review",
+        description: "An admin will review your course before it goes live.",
+      });
+    } catch (err) {
+      toast({
+        title: "Failed to submit",
+        description: err instanceof Error ? err.message : "Something went wrong.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
@@ -430,9 +516,33 @@ export default function InstructorCourseDetail() {
                   </Link>
                 )}
               </div>
-              <Badge variant="outline" className="text-xs text-slate-500">
-                Instructor view
-              </Badge>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button variant="outline" size="sm" onClick={openEditSheet} className="gap-1.5">
+                  <Pencil className="w-3.5 h-3.5" /> Edit course
+                </Button>
+                {data.status === "draft" && (
+                  <Button
+                    size="sm"
+                    onClick={handleSubmitForReview}
+                    disabled={
+                      submitForReviewMutation.isPending ||
+                      (data.total_sprints === 0 || data.total_tickets === 0)
+                    }
+                    title={
+                      data.total_sprints === 0 || data.total_tickets === 0
+                        ? "Add at least one sprint and generate tickets before submitting"
+                        : undefined
+                    }
+                    className="gap-1.5"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    {submitForReviewMutation.isPending ? "Submitting…" : "Submit for review"}
+                  </Button>
+                )}
+                <Badge variant="outline" className="text-xs text-slate-500">
+                  Instructor view
+                </Badge>
+              </div>
             </div>
 
             <motion.div
@@ -664,6 +774,110 @@ export default function InstructorCourseDetail() {
           </>
         )}
       </div>
+
+      <Sheet open={editSheetOpen} onOpenChange={setEditSheetOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Edit course</SheetTitle>
+          </SheetHeader>
+          <form onSubmit={handleEditSave} className="mt-6 space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="edit-title">Title</Label>
+              <Input
+                id="edit-title"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                required
+                disabled={updateCourseMutation.isPending}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-description">Description (optional)</Label>
+              <Textarea
+                id="edit-description"
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                className="min-h-[100px] resize-y"
+                disabled={updateCourseMutation.isPending}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Category</Label>
+                <Select
+                  value={editCategory}
+                  onValueChange={(v) => setEditCategory(v as CourseCategory)}
+                  disabled={updateCourseMutation.isPending}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CATEGORIES.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Difficulty</Label>
+                <Select
+                  value={editDifficulty}
+                  onValueChange={(v) => setEditDifficulty(v as Difficulty)}
+                  disabled={updateCourseMutation.isPending}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DIFFICULTIES.map((d) => (
+                      <SelectItem key={d} value={d}>
+                        {d}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-fee">Fee (KES)</Label>
+              <Input
+                id="edit-fee"
+                type="number"
+                min={0}
+                step={100}
+                value={editFee}
+                onChange={(e) => setEditFee(e.target.value)}
+                disabled={updateCourseMutation.isPending}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-partner">Company partner (optional)</Label>
+              <Input
+                id="edit-partner"
+                value={editCompanyPartner}
+                onChange={(e) => setEditCompanyPartner(e.target.value)}
+                disabled={updateCourseMutation.isPending}
+              />
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button type="submit" disabled={updateCourseMutation.isPending}>
+                {updateCourseMutation.isPending ? "Saving…" : "Save changes"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditSheetOpen(false)}
+                disabled={updateCourseMutation.isPending}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </SheetContent>
+      </Sheet>
 
       {courseId && (
         <TicketDetailSheet

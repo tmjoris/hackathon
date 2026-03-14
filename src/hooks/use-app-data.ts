@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Ticket } from "@/lib/domain-types";
-import type { Course, Sprint, User, Certificate } from "@/lib/domain-types";
+import type { Course, Sprint, User, Certificate, CourseCategory, Difficulty } from "@/lib/domain-types";
 import type {
   InstructorCourse,
   InstructorUser,
@@ -707,6 +707,137 @@ export function useInstructorCourses() {
   });
 }
 
+export type CreateCoursePayload = {
+  title: string;
+  description?: string;
+  category: CourseCategory;
+  difficulty: Difficulty;
+  fee_amount?: number;
+  company_partner?: string | null;
+};
+
+export function useCreateCourse() {
+  const { user: authUser } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: CreateCoursePayload) => {
+      if (!supabase || !authUser?.id) {
+        throw new Error("Not authenticated. Cannot create course.");
+      }
+      const title = payload.title.trim();
+      if (!title) throw new Error("Course title is required.");
+
+      let feeAmount = payload.fee_amount ?? 1000;
+      const { data: feeRow } = await supabase
+        .from("platform_settings")
+        .select("value")
+        .eq("key", "default_course_fee")
+        .maybeSingle();
+      if (feeRow?.value != null && payload.fee_amount == null) {
+        const parsed = Number(feeRow.value);
+        if (!Number.isNaN(parsed)) feeAmount = parsed;
+      }
+
+      const { data, error } = await supabase
+        .from("courses")
+        .insert({
+          instructor_id: authUser.id,
+          title,
+          description: payload.description?.trim() || null,
+          category: payload.category,
+          difficulty: payload.difficulty,
+          fee_amount: feeAmount,
+          status: "draft",
+          company_partner: payload.company_partner?.trim() || null,
+        })
+        .select("id, title, status")
+        .single();
+
+      if (error || !data) {
+        throw new Error(error?.message ?? "Failed to create course.");
+      }
+      return data as { id: string; title: string; status: string };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["instructor", "courses"] });
+      queryClient.invalidateQueries({ queryKey: ["instructor", "course-detail", data.id] });
+    },
+  });
+}
+
+export type UpdateCoursePayload = {
+  title?: string;
+  description?: string;
+  category?: CourseCategory;
+  difficulty?: Difficulty;
+  fee_amount?: number;
+  company_partner?: string | null;
+};
+
+export function useUpdateCourse(courseId: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: UpdateCoursePayload) => {
+      if (!supabase || !courseId) {
+        throw new Error("Course not found. Cannot update.");
+      }
+      const updates: Record<string, unknown> = {};
+      if (payload.title !== undefined) updates.title = payload.title.trim() || undefined;
+      if (payload.description !== undefined) updates.description = payload.description?.trim() || null;
+      if (payload.category !== undefined) updates.category = payload.category;
+      if (payload.difficulty !== undefined) updates.difficulty = payload.difficulty;
+      if (payload.fee_amount !== undefined) updates.fee_amount = payload.fee_amount;
+      if (payload.company_partner !== undefined) updates.company_partner = payload.company_partner?.trim() || null;
+      if (Object.keys(updates).length === 0) return { id: courseId };
+
+      const { data, error } = await supabase
+        .from("courses")
+        .update(updates)
+        .eq("id", courseId)
+        .select("id")
+        .single();
+
+      if (error || !data) {
+        throw new Error(error?.message ?? "Failed to update course.");
+      }
+      return data as { id: string };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["instructor", "course-detail", courseId] });
+      queryClient.invalidateQueries({ queryKey: ["instructor", "courses"] });
+    },
+  });
+}
+
+export function useSubmitCourseForReview(courseId: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      if (!supabase || !courseId) {
+        throw new Error("Course not found. Cannot submit for review.");
+      }
+      const { data, error } = await supabase
+        .from("courses")
+        .update({ status: "under_review" })
+        .eq("id", courseId)
+        .select("id, status")
+        .single();
+
+      if (error || !data) {
+        throw new Error(error?.message ?? "Failed to submit course for review.");
+      }
+      return data as { id: string; status: string };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["instructor", "course-detail", courseId] });
+      queryClient.invalidateQueries({ queryKey: ["instructor", "courses"] });
+    },
+  });
+}
+
 export function useInstructorProfile() {
   const { user: authUser, profile } = useAuth();
 
@@ -1066,6 +1197,11 @@ export interface InstructorCourseDetailData {
   category: string | null;
   difficulty: string | null;
   description: string | null;
+  status: string;
+  fee_amount: number;
+  company_partner: string | null;
+  total_sprints: number;
+  total_tickets: number;
   materials: InstructorCourseMaterial[];
   sprints: InstructorSprintWithTickets[];
 }
@@ -1127,6 +1263,18 @@ export function useCreateSprint() {
         throw new Error(
           error?.message ?? "Failed to create sprint.",
         );
+      }
+
+      const { count, error: countError } = await supabase
+        .from("sprints")
+        .select("*", { count: "exact", head: true })
+        .eq("course_id", courseId);
+
+      if (!countError && count != null) {
+        await supabase
+          .from("courses")
+          .update({ total_sprints: count })
+          .eq("id", courseId);
       }
 
       return data;
@@ -1359,7 +1507,7 @@ export function useInstructorCourseDetail(courseId: string | null) {
       ] = await Promise.all([
         client
           .from("courses")
-          .select("id, title, category, difficulty, description")
+          .select("id, title, category, difficulty, description, status, fee_amount, company_partner, total_sprints, total_tickets")
           .eq("id", courseId)
           .single(),
         client
@@ -1457,6 +1605,11 @@ export function useInstructorCourseDetail(courseId: string | null) {
         title: course.title,
         category: course.category ?? null,
         difficulty: course.difficulty ?? null,
+        status: course.status ?? "draft",
+        fee_amount: Number(course.fee_amount ?? 0),
+        company_partner: course.company_partner ?? null,
+        total_sprints: course.total_sprints ?? 0,
+        total_tickets: course.total_tickets ?? 0,
         description: course.description ?? null,
         materials: materialsMapped,
         sprints: sprintsMapped,

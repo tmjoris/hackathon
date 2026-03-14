@@ -28,6 +28,7 @@ import AdminMarket from "@/pages/admin/market";
 // Instructor pages
 import InstructorDashboard from "@/pages/instructor/dashboard";
 import InstructorCourses from "@/pages/instructor/courses";
+import InstructorCourseCreate from "@/pages/instructor/course-create";
 import InstructorCourseDetail from "@/pages/instructor/course-detail";
 import InstructorCourseAttempts from "@/pages/instructor/course-attempts";
 import InstructorStudents from "@/pages/instructor/students";
@@ -69,6 +70,7 @@ function Router() {
       {/* Instructor */}
       <Route path="/instructor/dashboard" component={InstructorDashboard} />
       <Route path="/instructor/courses" component={InstructorCourses} />
+      <Route path="/instructor/courses/new" component={InstructorCourseCreate} />
       <Route path="/instructor/courses/:courseId/attempts" component={InstructorCourseAttempts} />
       <Route path="/instructor/courses/:id" component={InstructorCourseDetail} />
       <Route path="/instructor/students" component={InstructorStudents} />

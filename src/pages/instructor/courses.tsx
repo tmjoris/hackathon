@@ -1,21 +1,48 @@
 import { motion } from "framer-motion";
 import { Link } from "wouter";
-import { Users, TicketCheck, Star, Building2, ArrowRight } from "lucide-react";
+import { Users, TicketCheck, Star, Building2, ArrowRight, Plus, BookOpen } from "lucide-react";
 import { InstructorLayout } from "@/components/layout/instructor-layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useInstructorCourses } from "@/hooks/use-app-data";
 
 export default function InstructorCourses() {
-  const { data: instructorCourses = [] } = useInstructorCourses();
+  const { data: instructorCourses = [], isLoading } = useInstructorCourses();
   return (
     <InstructorLayout>
       <div className="p-6 md:p-8 max-w-5xl mx-auto space-y-8">
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="text-3xl font-display font-bold text-slate-900">My Courses</h1>
-          <p className="text-slate-500 mt-1">All courses you've published or are building on Fieldwork.</p>
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-display font-bold text-slate-900">My Courses</h1>
+            <p className="text-slate-500 mt-1">All courses you've published or are building on Fieldwork.</p>
+          </div>
+          <Button asChild className="w-full sm:w-auto">
+            <Link href="/instructor/courses/new">
+              <Plus className="w-4 h-4 mr-2" /> Create course
+            </Link>
+          </Button>
         </motion.div>
+
+        {!isLoading && instructorCourses.length === 0 && (
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+            <Card className="border border-dashed border-slate-200 bg-slate-50/50">
+              <CardContent className="flex flex-col items-center justify-center py-16 px-6 text-center">
+                <div className="w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mb-4">
+                  <BookOpen className="w-8 h-8" />
+                </div>
+                <h2 className="text-xl font-display font-bold text-slate-900 mb-2">No courses yet</h2>
+                <p className="text-slate-500 max-w-sm mb-6">Create your first course to start publishing sprints and work tickets for students.</p>
+                <Button asChild>
+                  <Link href="/instructor/courses/new">
+                    <Plus className="w-4 h-4 mr-2" /> Create your first course
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
 
         <div className="space-y-6">
           {instructorCourses.map(course => (

@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Users, BookOpen, Wallet, TicketCheck, TrendingUp, AlertCircle } from "lucide-react";
+import { Users, BookOpen, Wallet, TicketCheck, TrendingUp, AlertCircle, Plus } from "lucide-react";
 import { Link } from "wouter";
 import { InstructorLayout } from "@/components/layout/instructor-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -76,7 +76,14 @@ export default function InstructorDashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Course overview */}
           <motion.div initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }} className="lg:col-span-2 space-y-4">
-            <h2 className="text-xl font-display font-bold text-slate-900">Your Courses</h2>
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <h2 className="text-xl font-display font-bold text-slate-900">Your Courses</h2>
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/instructor/courses/new" className="inline-flex items-center gap-1.5">
+                  <Plus className="w-4 h-4" /> Create course
+                </Link>
+              </Button>
+            </div>
             <div className="space-y-4">
               {instructorCourses.map(course => (
                 <Card key={course.id} className="border-0 shadow-sm">
