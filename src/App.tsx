@@ -72,7 +72,7 @@ function Router() {
         )}
       </Route>
 
-      <Route path="/courses/:courseId/ticket/:ticketId">
+      <Route path="/courses/:courseId/lesson/:ticketId">
         {(params) => (
           <ProtectedRoute
             component={TicketView}

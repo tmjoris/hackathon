@@ -1,15 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRoute, Link, useLocation } from "wouter";
-import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Clock, AlertCircle, CheckCircle2, Trophy, ArrowRight, Loader2, Flame } from "lucide-react";
+import { ArrowLeft, Clock, AlertCircle, CheckCircle2, Trophy, ArrowRight, Loader2, Play, ChevronRight, ChevronLeft } from "lucide-react";
 import confetti from "canvas-confetti";
+import Editor from "@monaco-editor/react";
 
 import { useTicket, useCourse, useSubmitTicket } from "@/hooks/use-app-data";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -19,7 +17,7 @@ import {
 } from "@/components/ui/dialog";
 
 export default function TicketView() {
-  const [, params] = useRoute("/courses/:courseId/ticket/:ticketId");
+  const [, params] = useRoute("/courses/:courseId/lesson/:ticketId");
   const [, setLocation] = useLocation();
 
   const courseId = params?.courseId || "";
@@ -30,14 +28,26 @@ export default function TicketView() {
   const submitMutation = useSubmitTicket();
 
   const [content, setContent] = useState("");
+  const [consoleOutput, setConsoleOutput] = useState("");
+  const [isRunning, setIsRunning] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [checkedItems, setCheckedItems] = useState<Record<number, boolean>>({});
 
-  const isFormValid = content.trim().length > 10;
+  useEffect(() => {
+    if (ticket?.starterCode) {
+      setContent(ticket.starterCode);
+    }
+  }, [ticket]);
+
+  const handleRun = async () => {
+    setIsRunning(true);
+    setConsoleOutput("");
+    // Simulate compilation or runtime
+    await new Promise(r => setTimeout(r, 800));
+    setConsoleOutput(ticket?.expectedOutput || "Run successful.\n> No output found.");
+    setIsRunning(false);
+  };
 
   const handleSubmit = async () => {
-    if (!isFormValid) return;
-
     await submitMutation.mutateAsync({ courseId, ticketId, content });
 
     // Trigger confetti
@@ -65,151 +75,188 @@ export default function TicketView() {
 
   if (courseLoading || ticketLoading || !ticket || !course) {
     return (
-      <div className="min-h-screen bg-slate-50 p-6">
-        <Skeleton className="h-6 w-48 mb-8" />
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <Skeleton className="h-[600px] rounded-none bg-secondary border-2 border-border" />
-          <Skeleton className="h-[600px] rounded-none bg-secondary border-2 border-border" />
+      <div className="min-h-screen bg-slate-50 p-6 flex flex-col">
+        <Skeleton className="h-16 w-full mb-2 bg-secondary" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 flex-1">
+          <Skeleton className="h-full rounded-sm bg-secondary" />
+          <Skeleton className="h-full rounded-sm bg-secondary" />
+          <Skeleton className="h-full rounded-sm bg-secondary" />
         </div>
       </div>
     );
   }
 
-  const deliverablesList = ticket.deliverables || [
-    "Review context and requirements",
-    "Formulate structured solution",
-    "Document findings and reasoning"
-  ];
+  // Derive title to display in left pane (Codecademy style)
+  const isPython = course.title.toLowerCase().includes("python");
+  const fileName = isPython ? "main.py" : "index.js";
+  const language = isPython ? "python" : "javascript";
 
   return (
-    <div className="min-h-[calc(100vh-3.5rem)] bg-background flex flex-col">
-      {/* Top Navigation Bar */}
-      <header className="h-16 bg-background border-b-2 border-border px-6 flex items-center justify-between shrink-0 sticky top-0 z-10 shadow-[0_4px_0_0_rgba(0,0,0,0.5)]">
+    <div className="h-screen w-full bg-[#1e1e2e] flex flex-col font-sans overflow-hidden text-slate-300">
+      {/* Top Header */}
+      <header className="h-14 bg-[#181825] border-b border-[#313244] px-4 flex items-center justify-between shrink-0 shadow-sm z-10">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" asChild className="text-muted-foreground hover:text-foreground font-bold rounded-none hover:bg-secondary transition-colors">
+          <Button variant="ghost" size="icon" asChild className="text-slate-400 hover:text-white rounded-md hover:bg-[#313244] transition-colors h-8 w-8">
             <Link href={`/courses/${courseId}`}>
-              <ArrowLeft className="w-4 h-4 mr-2" /> Back to {course.title}
+              <ArrowLeft className="w-4 h-4" />
             </Link>
           </Button>
+          <span className="font-bold text-white tracking-wide text-sm">{course.title}</span>
         </div>
         <div className="flex items-center gap-4">
-          <Badge variant="outline" className="bg-background border-2 border-border text-foreground font-bold rounded-none px-3 py-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)]">
-            <Clock className="w-4 h-4 mr-2 text-primary" />
-            Est. {ticket.durationEstimate}
+          <Badge variant="outline" className="bg-[#181825] border-[#313244] text-slate-300 font-semibold rounded-md px-3 py-1">
+            <Clock className="w-3 h-3 mr-2 text-blue-400" />
+            {ticket.durationEstimate}
           </Badge>
-          {ticket.isUrgent && (
-            <Badge className="bg-destructive text-destructive-foreground border-2 border-foreground rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)] px-3 py-1 font-bold uppercase tracking-wider">
-              <AlertCircle className="w-4 h-4 mr-2" /> Urgent
-            </Badge>
-          )}
+          <Button variant="ghost" size="sm" className="hidden lg:flex text-slate-400 hover:text-white h-8 text-xs font-semibold hover:bg-[#313244] tracking-wide rounded-md">
+            Get Unstuck
+          </Button>
+          <div className="w-8 h-8 rounded-full bg-violet-600 flex items-center justify-center text-white font-bold text-xs ml-2 cursor-pointer border border-[#313244]">
+            D
+          </div>
         </div>
       </header>
 
-      {/* Main Workspace */}
-      <main className="flex-1 overflow-hidden p-4 md:p-6 lg:p-8">
-        <div className="max-w-7xl mx-auto h-full grid grid-cols-1 lg:grid-cols-12 gap-8">
-
-          {/* Left Column: Context & Task */}
-          <div className="lg:col-span-5 flex flex-col h-full space-y-6 overflow-y-auto pr-2 pb-8 lg:pb-0 scrollbar-thin scrollbar-thumb-secondary scrollbar-track-background">
-            <div>
-              <div className="text-sm font-bold text-primary uppercase tracking-wider mb-3 underline decoration-primary decoration-2 underline-offset-4">{ticket.type} Ticket</div>
-              <h1 className="text-3xl md:text-4xl font-display font-bold text-foreground leading-tight">
-                {ticket.title}
-              </h1>
+      {/* Main 3-pane Layout */}
+      <main className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-12">
+        {/* Pane 1: Instructions (Left) - White Background */}
+        <div className="lg:col-span-4 bg-white text-slate-900 flex flex-col h-full border-r-2 border-slate-200">
+          <div className="p-4 border-b border-slate-200 flex items-center justify-between shrink-0">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{course.title.toUpperCase()}</span>
+            <div className="w-4 flex flex-col gap-[2px] cursor-pointer opacity-50 hover:opacity-100">
+              <div className="w-full h-[2px] bg-slate-900" />
+              <div className="w-full h-[2px] bg-slate-900" />
+              <div className="w-full h-[2px] bg-slate-900" />
             </div>
-
-            <div className="bg-background rounded-none p-6 border-2 border-border shadow-[4px_4px_0px_0px_rgba(0,0,0,0.5)]">
-              <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
-                <div className="w-2 h-2 bg-primary"></div> The Scenario
-              </h2>
-              <p className="text-foreground font-medium leading-relaxed text-base">
-                {ticket.scenario || "A standard operational request has been assigned to you. Review the required deliverables and submit your structured work."}
-              </p>
-            </div>
-
-            <div className="bg-secondary/30 rounded-none p-6 border-2 border-border shadow-[4px_4px_0px_0px_rgba(0,0,0,0.5)] flex-1">
-              <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-5 flex items-center gap-2">
-                <div className="w-2 h-2 bg-success"></div> Required Deliverables
-              </h2>
-              <div className="space-y-4">
-                {deliverablesList.map((item, idx) => (
-                  <div key={idx} className="flex items-start gap-4">
-                    <Checkbox
-                      id={`chk-${idx}`}
-                      className="mt-1 rounded-none border-2 border-foreground data-[state=checked]:bg-success data-[state=checked]:text-success-foreground data-[state=checked]:border-foreground w-5 h-5"
-                      checked={checkedItems[idx] || false}
-                      onCheckedChange={(checked) => setCheckedItems(prev => ({ ...prev, [idx]: !!checked }))}
-                    />
-                    <label
-                      htmlFor={`chk-${idx}`}
-                      className={`text-base leading-snug cursor-pointer transition-colors font-bold ${checkedItems[idx] ? 'text-muted-foreground line-through opacity-70' : 'text-foreground'}`}
-                    >
+          </div>
+          
+          <div className="p-6 md:p-8 overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-slate-200">
+            {ticket.lessonContent ? (
+              <div className="prose prose-slate prose-h1:text-2xl prose-h1:font-display prose-h1:font-bold prose-h1:mb-3 prose-p:text-[15px] prose-p:leading-relaxed prose-a:text-blue-600 prose-code:bg-slate-100 prose-code:text-rose-600 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:text-[13px] prose-code:font-mono max-w-none" dangerouslySetInnerHTML={{ __html: ticket.lessonContent }} />
+            ) : (
+              <div>
+                <h1 className="text-2xl font-display font-bold mb-4">{ticket.title}</h1>
+                <p className="text-slate-600 text-[15px] leading-relaxed">
+                  {ticket.scenario || "A standard operational request has been assigned to you. Review the required deliverables and submit your structured work."}
+                </p>
+                
+                <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mt-8 mb-4">Required Deliverables</h2>
+                <ul className="space-y-3">
+                  {(ticket.deliverables || ["Implement the requested feature", "Verify code compiles without errors"]).map((item, idx) => (
+                    <li key={idx} className="flex gap-3 text-[15px] text-slate-700">
+                      <div className="mt-1 w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
                       {item}
-                    </label>
-                  </div>
-                ))}
+                    </li>
+                  ))}
+                </ul>
               </div>
+            )}
+          </div>
+        </div>
+
+        {/* Pane 2: Editor (Middle) - Dark */}
+        <div className="lg:col-span-5 bg-[#1e1e2e] flex flex-col h-full border-r border-[#313244]">
+          <div className="h-10 bg-[#181825] flex items-end shrink-0 px-2 pt-2 border-b border-[#313244]">
+            <div className="bg-[#1e1e2e] text-slate-200 px-4 py-1.5 text-xs font-mono rounded-t-lg border-t border-x border-[#313244] border-b-transparent relative z-10 opacity-100 flex items-center gap-2">
+              {fileName}
+              <button className="opacity-50 hover:opacity-100 text-[10px]">x</button>
             </div>
           </div>
-
-          {/* Right Column: Workspace */}
-          <div className="lg:col-span-7 flex flex-col h-full bg-background rounded-none border-2 border-border shadow-[8px_8px_0px_0px_rgba(0,0,0,0.5)] relative">
-            <div className="p-4 border-b-2 border-border bg-secondary flex justify-between items-center shrink-0">
-              <span className="font-bold text-foreground uppercase tracking-wider text-sm flex items-center gap-2">
-                <div className="w-3 h-3 bg-foreground rounded-none"></div> Your Workspace
-              </span>
-            </div>
-
-            <div className="flex-1 p-0 relative bg-background">
-              <Textarea
-                placeholder="Structure your solution, code, or analysis here..."
-                className="w-full h-full min-h-[400px] border-0 focus-visible:ring-0 rounded-none resize-none p-6 text-base text-foreground bg-background placeholder:text-muted-foreground leading-relaxed font-mono focus:bg-secondary/10 transition-colors"
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-              />
-            </div>
-
-            <div className="p-4 border-t-2 border-border bg-secondary shrink-0 flex items-center justify-between">
-              <p className="text-sm text-foreground font-bold">
-                {content.length > 0 ? <span className="text-primary">{content.length} characters</span> : <span className="text-muted-foreground">Waiting for input...</span>}
-              </p>
-              <Button
-                onClick={handleSubmit}
-                disabled={!isFormValid || submitMutation.isPending}
-                className="rounded-none border-2 border-foreground bg-primary text-primary-foreground font-bold shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] hover:shadow-none hover:translate-x-1 hover:translate-y-1 transition-all min-w-[160px] h-12"
-              >
-                {submitMutation.isPending ? (
-                  <><Loader2 className="w-5 h-5 mr-3 animate-spin" /> Submitting...</>
-                ) : (
-                  <><CheckCircle2 className="w-5 h-5 mr-3" /> Submit Work</>
-                )}
-              </Button>
-            </div>
+          <div className="flex-1 py-4 pt-4">
+            <Editor
+              height="100%"
+              defaultLanguage={language}
+              theme="vs-dark"
+              value={content}
+              onChange={(val) => setContent(val || "")}
+              options={{
+                minimap: { enabled: false },
+                fontSize: 14,
+                fontFamily: "var(--font-mono)",
+                lineHeight: 24,
+                padding: { top: 8 },
+                scrollBeyondLastLine: false,
+                renderLineHighlight: "all",
+                hideCursorInOverviewRuler: true,
+                overviewRulerBorder: false,
+                scrollbar: {
+                  verticalSliderSize: 6,
+                  horizontalSliderSize: 6
+                }
+              }}
+            />
           </div>
+        </div>
 
+        {/* Pane 3: Console Output (Right) - Darker */}
+        <div className="lg:col-span-3 bg-[#11111b] flex flex-col h-full relative">
+          <div className="h-10 border-b border-[#313244] flex items-center px-4 shrink-0 justify-between bg-[#11111b]">
+            <span className="text-[11px] font-bold text-slate-500 tracking-widest uppercase">Output</span>
+            {isRunning && <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-500" />}
+          </div>
+          <div className="flex-1 p-4 font-mono text-[13px] text-slate-300 leading-relaxed overflow-y-auto whitespace-pre-wrap">
+            {consoleOutput}
+          </div>
         </div>
       </main>
 
+      {/* Footer Workspace Action Bar */}
+      <footer className="h-14 bg-[#181825] border-t border-[#313244] flex items-center justify-between px-4 shrink-0 z-10">
+        {/* Left: Run */}
+        <div className="flex-1 flex justify-start">
+          <Button
+            onClick={handleRun}
+            disabled={isRunning}
+            className="bg-[#facc15] text-amber-950 hover:bg-[#fde047] font-bold h-9 min-w-[80px] rounded-md shadow-none transition-colors border border-[#ca8a04]"
+          >
+            {isRunning ? <Loader2 className="w-4 h-4 animate-spin" /> : "Run"}
+          </Button>
+        </div>
+
+        {/* Center: Pagination indicator */}
+        <div className="flex-1 flex justify-center">
+          <span className="text-slate-400 text-xs font-bold tracking-wide">
+            {ticket.id.split('_').pop()}/13
+          </span>
+        </div>
+
+        {/* Right: Navigation */}
+        <div className="flex-1 flex justify-end items-center gap-2">
+          <Button variant="ghost" size="sm" asChild className="h-8 bg-[#313244]/50 border border-[#313244] hover:bg-[#313244] text-slate-300 rounded-md font-semibold text-xs px-3">
+            <Link href={`/courses/${courseId}`}>
+              <ChevronLeft className="w-3 h-3 mr-1" /> Back
+            </Link>
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={submitMutation.isPending}
+            variant="secondary"
+            size="sm"
+            className="h-8 bg-blue-600 hover:bg-blue-500 text-white border border-blue-500 hover:border-blue-400 rounded-md font-semibold text-xs px-3 ml-2"
+          >
+            {submitMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : undefined}
+            Submit Next <ChevronRight className="w-3 h-3 ml-1" />
+          </Button>
+        </div>
+      </footer>
+
       {/* Success Modal */}
       <Dialog open={showSuccess} onOpenChange={setShowSuccess}>
-        <DialogContent className="sm:max-w-md text-center p-8 rounded-none border-4 border-foreground shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] bg-background">
-          <div className="mx-auto w-20 h-20 bg-success text-success-foreground border-4 border-foreground rounded-none flex items-center justify-center mb-8 transform -rotate-6 shadow-[4px_4px_0px_0px_rgba(255,255,255,1)]">
+        <DialogContent className="sm:max-w-md text-center p-8 border-0 bg-[#1e1e2e] shadow-2xl rounded-xl">
+          <div className="mx-auto w-20 h-20 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-2xl flex items-center justify-center mb-6">
             <Trophy className="w-10 h-10" />
           </div>
           <DialogHeader>
-            <DialogTitle className="text-3xl font-display font-bold text-center text-foreground uppercase tracking-wide">Ticket Completed!</DialogTitle>
+            <DialogTitle className="text-2xl font-display font-bold text-center text-white">Lesson Completed!</DialogTitle>
           </DialogHeader>
-          <div className="py-6">
-            <p className="text-muted-foreground mb-8 text-lg font-medium">
-              Excellent work. Your solution has been recorded and verified. You're building a solid proof-of-work portfolio.
+          <div className="py-4">
+            <p className="text-slate-400 mb-6 text-sm leading-relaxed">
+              Great progress. You successfully completed this exercise and learned a new concept.
             </p>
-            <div className="inline-flex items-center gap-3 bg-secondary/50 px-6 py-3 rounded-none border-2 border-border text-foreground font-bold mb-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)]">
-              <Flame className="w-6 h-6 text-primary fill-primary" /> <span className="uppercase tracking-wider">Streak extended to 13 days!</span>
-            </div>
           </div>
           <DialogFooter className="sm:justify-center">
-            <Button size="lg" onClick={handleNext} className="w-full sm:w-auto font-bold bg-primary text-primary-foreground hover:bg-primary/90 border-2 border-foreground rounded-none px-8 shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] hover:shadow-none hover:translate-x-1 hover:translate-y-1 transition-all h-14 text-lg">
-              Continue Course <ArrowRight className="w-5 h-5 ml-3" />
+            <Button size="lg" onClick={handleNext} className="w-full sm:w-auto font-bold bg-blue-600 text-white hover:bg-blue-500 rounded-lg">
+              Continue Course <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </DialogFooter>
         </DialogContent>
