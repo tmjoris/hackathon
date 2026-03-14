@@ -9,8 +9,17 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 export default function Courses() {
   const { data: courses, isLoading } = useCourses();
@@ -19,17 +28,62 @@ export default function Courses() {
   const [, setLocation] = useLocation();
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
+  const [selectedCourse, setSelectedCourse] = useState<{ id: string; title: string; fee: number } | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<"mpesa" | "card">("mpesa");
+  const [mpesaPhone, setMpesaPhone] = useState("");
+  const [cardNumber, setCardNumber] = useState("");
+  const [cardExpiry, setCardExpiry] = useState("");
+  const [cardCvv, setCardCvv] = useState("");
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   const handleEnroll = (courseId: string) => {
     enrollMutation.mutate(courseId, {
       onSuccess: () => {
         toast({ title: "Enrolled!", description: "You can now access the course." });
+        setSelectedCourse(null);
         setLocation(`/courses/${courseId}`);
       },
       onError: (err) => {
-        toast({ title: "Enrollment failed", description: err instanceof Error ? err.message : "Please try again.", variant: "destructive" });
+        toast({
+          title: "Enrollment failed",
+          description: err instanceof Error ? err.message : "Please try again.",
+          variant: "destructive",
+        });
       },
     });
+  };
+
+  const openPaymentDialog = (course: { id: string; title: string; fee: number }) => {
+    setSelectedCourse(course);
+    setPaymentMethod("mpesa");
+    setMpesaPhone("");
+    setCardNumber("");
+    setCardExpiry("");
+    setCardCvv("");
+    setIsProcessingPayment(false);
+  };
+
+  const closePaymentDialog = () => {
+    if (isProcessingPayment || enrollMutation.isPending) return;
+    setSelectedCourse(null);
+  };
+
+  const handleConfirmPayment = () => {
+    if (!selectedCourse) return;
+    setIsProcessingPayment(true);
+
+    // Simulate a short processing delay for the chosen payment method
+    setTimeout(() => {
+      setIsProcessingPayment(false);
+
+      const methodLabel = paymentMethod === "mpesa" ? "Lipa Na M-Pesa" : "Card";
+      toast({
+        title: "Payment simulated",
+        description: `Successfully simulated ${methodLabel} payment for ${selectedCourse.title}.`,
+      });
+
+      handleEnroll(selectedCourse.id);
+    }, 1200);
   };
 
   const filteredCourses = courses?.filter(c => {
@@ -139,7 +193,7 @@ export default function Courses() {
                         size="default"
                         variant="outline"
                         className="w-full sm:w-auto font-bold bg-secondary text-foreground hover:bg-background border-2 border-border rounded-none px-6 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
-                        onClick={() => handleEnroll(course.id)}
+                        onClick={() => openPaymentDialog(course)}
                         disabled={enrollMutation.isPending}
                       >
                         {enrollMutation.isPending ? "Enrolling…" : "Enroll Now"}
@@ -158,6 +212,132 @@ export default function Courses() {
             <p className="text-muted-foreground font-medium text-lg">Try adjusting your search or filters.</p>
           </div>
         )}
+
+        <Dialog open={!!selectedCourse} onOpenChange={(open) => (open ? undefined : closePaymentDialog())}>
+          <DialogContent className="rounded-none border-2 border-border shadow-[6px_6px_0px_0px_rgba(0,0,0,0.7)]">
+            <DialogHeader>
+              <DialogTitle className="font-display text-2xl font-bold uppercase tracking-wider">
+                Make Payment
+              </DialogTitle>
+              <DialogDescription className="text-sm font-medium">
+                Choose how to pay for{" "}
+                <span className="font-semibold text-foreground">
+                  {selectedCourse?.title ?? "this course"}
+                </span>
+                . This is a sandbox simulation only — no real money is moved.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 mt-4">
+              <div className="flex items-center justify-between bg-secondary px-4 py-3 border-2 border-border">
+                <span className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                  Total Fee
+                </span>
+                <span className="text-xl font-display font-bold">
+                  KES {selectedCourse?.fee.toLocaleString()}
+                </span>
+              </div>
+
+              <Tabs value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as "mpesa" | "card")}>
+                <TabsList className="bg-transparent border-0 h-10 p-0 gap-2 w-full">
+                  <TabsTrigger
+                    value="mpesa"
+                    className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-transparent rounded-none px-4 text-sm font-bold transition-none border-2 border-border text-foreground hover:bg-secondary h-full flex-1"
+                  >
+                    Lipa Na M-Pesa
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="card"
+                    className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-transparent rounded-none px-4 text-sm font-bold transition-none border-2 border-border text-foreground hover:bg-secondary h-full flex-1"
+                  >
+                    Card Payment
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="mpesa" className="mt-4 space-y-3">
+                  <p className="text-xs text-muted-foreground font-medium">
+                    Enter a Kenyan mobile number to simulate an STK push request. We&apos;ll pretend you
+                    approved it on your phone.
+                  </p>
+                  <div className="space-y-2">
+                    <Label htmlFor="mpesa-phone" className="text-xs font-bold uppercase tracking-wider">
+                      M-Pesa phone number
+                    </Label>
+                    <Input
+                      id="mpesa-phone"
+                      placeholder="e.g. 07xx xxx xxx"
+                      className="rounded-none border-2 border-border"
+                      value={mpesaPhone}
+                      onChange={(e) => setMpesaPhone(e.target.value)}
+                    />
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="card" className="mt-4 space-y-3">
+                  <p className="text-xs text-muted-foreground font-medium">
+                    Use any dummy card details below to walk through a typical card checkout flow.
+                  </p>
+                  <div className="space-y-2">
+                    <Label htmlFor="card-number" className="text-xs font-bold uppercase tracking-wider">
+                      Card number
+                    </Label>
+                    <Input
+                      id="card-number"
+                      placeholder="4242 4242 4242 4242"
+                      className="rounded-none border-2 border-border"
+                      value={cardNumber}
+                      onChange={(e) => setCardNumber(e.target.value)}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="card-expiry" className="text-xs font-bold uppercase tracking-wider">
+                        Expiry
+                      </Label>
+                      <Input
+                        id="card-expiry"
+                        placeholder="MM / YY"
+                        className="rounded-none border-2 border-border"
+                        value={cardExpiry}
+                        onChange={(e) => setCardExpiry(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="card-cvv" className="text-xs font-bold uppercase tracking-wider">
+                        CVV
+                      </Label>
+                      <Input
+                        id="card-cvv"
+                        placeholder="123"
+                        className="rounded-none border-2 border-border"
+                        value={cardCvv}
+                        onChange={(e) => setCardCvv(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
+            </div>
+
+            <DialogFooter className="mt-6">
+              <Button
+                variant="outline"
+                className="rounded-none border-2 border-border bg-background text-foreground font-bold px-4"
+                onClick={closePaymentDialog}
+                disabled={isProcessingPayment || enrollMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="rounded-none bg-primary text-primary-foreground font-bold px-6 border-2 border-transparent hover:border-foreground"
+                onClick={handleConfirmPayment}
+                disabled={isProcessingPayment || enrollMutation.isPending}
+              >
+                {isProcessingPayment || enrollMutation.isPending ? "Processing..." : "Pay & Enroll"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </MainLayout>
   );

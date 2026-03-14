@@ -1141,7 +1141,7 @@ CREATE TRIGGER on_ticket_attempt_progress
 
 
 -- ---------------------------------------------------------------------------
--- 6.4 Simulate payment on enrollment insert.
+-- 6.4 Make Payment on enrollment insert.
 -- Computes and stores the platform fee (10%) and instructor share (90%).
 -- In production this would be replaced by a real payment webhook.
 -- ---------------------------------------------------------------------------
