@@ -333,6 +333,174 @@ export function useEnrolledCourses() {
   });
 }
 
+export function useEnrolledCoursesWithSprints() {
+  const { user: authUser } = useAuth();
+
+  return useQuery({
+    queryKey: ['courses', 'enrolled', 'with-sprints', authUser?.id ?? 'anonymous'],
+    queryFn: async (): Promise<Course[]> => {
+      if (!supabase || !authUser?.id) return [];
+
+      const { data: enrollments, error: enrollError } = await supabase
+        .from('enrollments')
+        .select('id, course_id, progress_percent, current_sprint_id')
+        .eq('student_id', authUser.id)
+        .in('status', ['active', 'completed']);
+
+      if (enrollError || !enrollments?.length) {
+        return [];
+      }
+
+      const courseIds = enrollments.map((e: { course_id: string }) => e.course_id);
+      const enrollmentIds = (enrollments as { id: string }[]).map((e) => e.id);
+      const enrollmentByCourse = new Map(
+        (enrollments as { id: string; course_id: string; progress_percent?: number; current_sprint_id?: string | null }[]).map((e) => [
+          e.course_id,
+          {
+            id: e.id,
+            progress_percent: Number(e.progress_percent ?? 0),
+            current_sprint_id: e.current_sprint_id ?? null,
+          },
+        ])
+      );
+      const enrollmentIdToCourseId = new Map(
+        (enrollments as { id: string; course_id: string }[]).map((e) => [e.id, e.course_id])
+      );
+
+      const [coursesResult, sprintsResult, ticketsResult, attemptsResult] = await Promise.all([
+        supabase
+          .from('courses')
+          .select(`
+            id,
+            title,
+            category,
+            difficulty,
+            fee_amount,
+            total_sprints,
+            total_tickets,
+            company_partner,
+            profiles!instructor_id(full_name)
+          `)
+          .in('id', courseIds),
+        supabase
+          .from('sprints')
+          .select('id, course_id, title, order_index')
+          .in('course_id', courseIds)
+          .order('order_index', { ascending: true }),
+        supabase
+          .from('tickets')
+          .select('id, sprint_id, course_id, title, type, duration_estimate_minutes, order_index')
+          .in('course_id', courseIds)
+          .order('order_index', { ascending: true }),
+        supabase
+          .from('ticket_attempts')
+          .select('enrollment_id, ticket_id')
+          .in('enrollment_id', enrollmentIds),
+      ]);
+
+      const { data: coursesData, error: coursesError } = coursesResult;
+      const { data: sprintsRows } = sprintsResult;
+      const { data: ticketsRows } = ticketsResult;
+      const { data: attemptsRows } = attemptsResult;
+
+      if (coursesError || !coursesData?.length) {
+        return [];
+      }
+
+      const attemptedByCourse = new Map<string, Set<string>>();
+      for (const a of (attemptsRows ?? []) as { enrollment_id: string; ticket_id: string }[]) {
+        const cid = enrollmentIdToCourseId.get(a.enrollment_id);
+        if (!cid) continue;
+        let set = attemptedByCourse.get(cid);
+        if (!set) {
+          set = new Set<string>();
+          attemptedByCourse.set(cid, set);
+        }
+        set.add(a.ticket_id);
+      }
+
+      const sprintsByCourse = new Map<string, { id: string; title: string; order_index: number }[]>();
+      (sprintsRows ?? []).forEach((s: { id: string; course_id: string; title: string; order_index: number }) => {
+        const list = sprintsByCourse.get(s.course_id) ?? [];
+        list.push({ id: s.id, title: s.title, order_index: s.order_index ?? 0 });
+        sprintsByCourse.set(s.course_id, list);
+      });
+
+      const ticketsBySprint = new Map<string, { id: string; title: string; type: string; duration_estimate_minutes: number | null; order_index: number }[]>();
+      (ticketsRows ?? []).forEach((t: { id: string; sprint_id: string; title: string; type: string; duration_estimate_minutes: number | null; order_index: number }) => {
+        const list = ticketsBySprint.get(t.sprint_id) ?? [];
+        list.push({
+          id: t.id,
+          title: t.title,
+          type: t.type,
+          duration_estimate_minutes: t.duration_estimate_minutes,
+          order_index: t.order_index ?? 0,
+        });
+        ticketsBySprint.set(t.sprint_id, list);
+      });
+
+      type CourseRow = {
+        id: string;
+        title: string;
+        category: string;
+        difficulty: string;
+        fee_amount: number;
+        total_sprints: number;
+        total_tickets: number;
+        company_partner: string | null;
+        profiles: { full_name: string } | { full_name: string }[] | null;
+      };
+      type TicketStatus = Ticket['status'];
+
+      return (coursesData as CourseRow[]).map((c): Course => {
+        const enrollment = enrollmentByCourse.get(c.id);
+        const attemptedTicketIds = attemptedByCourse.get(c.id) ?? new Set<string>();
+        const sprintsList = sprintsByCourse.get(c.id) ?? [];
+        const currentSprintId = enrollment?.current_sprint_id ?? sprintsList[0]?.id ?? null;
+        const sprintOrder = new Map(sprintsList.map((s, i) => [s.id, i]));
+
+        const getTicketStatus = (ticketId: string, sprintId: string): TicketStatus => {
+          if (attemptedTicketIds.has(ticketId)) return 'Completed';
+          const sprintIdx = sprintOrder.get(sprintId) ?? 0;
+          const currentIdx = currentSprintId != null ? (sprintOrder.get(currentSprintId) ?? 0) : 0;
+          if (sprintIdx < currentIdx) return 'Active';
+          if (sprintIdx > currentIdx) return 'Locked';
+          return 'Active';
+        };
+
+        const sprints: Sprint[] = sprintsList.map((s) => ({
+          id: s.id,
+          title: s.title,
+          order: s.order_index,
+          tickets: (ticketsBySprint.get(s.id) ?? []).map((t) => ({
+            id: t.id,
+            title: t.title,
+            type: (t.type ?? 'Build') as Ticket['type'],
+            durationEstimate: t.duration_estimate_minutes != null ? `${t.duration_estimate_minutes} mins` : '30 mins',
+            status: getTicketStatus(t.id, s.id),
+            hasAttemptedBefore: attemptedTicketIds.has(t.id),
+          } as Ticket)),
+        }));
+
+        return {
+          id: c.id,
+          title: c.title,
+          instructor: c.company_partner ?? (Array.isArray(c.profiles) ? c.profiles[0]?.full_name : c.profiles?.full_name) ?? 'Instructor',
+          category: c.category as Course['category'],
+          difficulty: c.difficulty as Course['difficulty'],
+          totalSprints: c.total_sprints ?? 0,
+          totalTickets: c.total_tickets ?? 0,
+          fee: Number(c.fee_amount ?? 0),
+          isEnrolled: true,
+          progressPercent: enrollment ? enrollment.progress_percent : 0,
+          currentSprint: currentSprintId ? (sprintOrder.get(currentSprintId) ?? 0) + 1 : 1,
+          sprints,
+        };
+      });
+    },
+  });
+}
+
 export function useEnrollCourse() {
   const queryClient = useQueryClient();
   const { user: authUser } = useAuth();
