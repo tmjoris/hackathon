@@ -1,42 +1,28 @@
 import { motion } from "framer-motion";
-import { Users, BookOpen, Wallet, TicketCheck, TrendingUp, AlertCircle, Plus } from "lucide-react";
+import { Users, BookOpen, Wallet, TicketCheck, TrendingUp, AlertCircle } from "lucide-react";
 import { Link } from "wouter";
 import { InstructorLayout } from "@/components/layout/instructor-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import {
-  useInstructorCourses,
-  useInstructorProfile,
-  useInstructorStudentEnrollments,
-  useInstructorTicketPerformance,
-} from "@/hooks/use-app-data";
+import { useAuth } from "@/hooks/use-auth";
+import { instructorUser, instructorCourses, studentEnrollments, ticketPerformance } from "@/lib/instructor-data";
 
 const containerVariants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.08 } } };
 const itemVariants = { hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 280, damping: 24 } } };
 
 export default function InstructorDashboard() {
-  const { data: instructorCourses = [], isLoading } = useInstructorCourses();
-  const { data: instructorProfile } = useInstructorProfile();
-  const { data: studentEnrollments = [] } = useInstructorStudentEnrollments();
-  const { data: ticketPerformance = [] } = useInstructorTicketPerformance();
-
+  const { user: authUser } = useAuth();
   const liveCourse = instructorCourses.find(c => c.status === "Live");
   const atRiskStudents = studentEnrollments.filter(s => s.status === "At Risk");
-  const weakestTicket = ticketPerformance.length > 0 ? [...ticketPerformance].sort((a, b) => a.passRate - b.passRate)[0] : null;
-
-  const totalEarned = instructorProfile?.totalEarned ?? 0;
-  const pendingPayout = instructorProfile?.pendingPayout ?? 0;
-  const profileName = instructorProfile?.name ?? "Instructor";
-  const profileTitle = instructorProfile?.title ?? "";
-  const profileInstitution = instructorProfile?.institution ?? "";
+  const weakestTicket = [...ticketPerformance].sort((a, b) => a.passRate - b.passRate)[0];
 
   const statCards = [
     { label: "Total Students", value: liveCourse?.studentsEnrolled.toLocaleString() ?? "0", icon: Users, color: "bg-blue-100 text-blue-600", accent: "bg-blue-500" },
     { label: "Active Courses", value: instructorCourses.filter(c => c.status === "Live").length, icon: BookOpen, color: "bg-purple-100 text-purple-600", accent: "bg-purple-500" },
-    { label: "Total Earned", value: `KES ${(totalEarned / 1000).toFixed(0)}K`, icon: Wallet, color: "bg-emerald-100 text-emerald-600", accent: "bg-emerald-500" },
-    { label: "Pending Payout", value: `KES ${pendingPayout.toLocaleString()}`, icon: TrendingUp, color: "bg-amber-100 text-amber-600", accent: "bg-amber-500" },
+    { label: "Total Earned", value: `KES ${(instructorUser.totalEarned / 1000).toFixed(0)}K`, icon: Wallet, color: "bg-emerald-100 text-emerald-600", accent: "bg-emerald-500" },
+    { label: "Pending Payout", value: `KES ${instructorUser.pendingPayout.toLocaleString()}`, icon: TrendingUp, color: "bg-amber-100 text-amber-600", accent: "bg-amber-500" },
   ];
 
   return (
@@ -45,8 +31,8 @@ export default function InstructorDashboard() {
 
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-display font-bold text-slate-900 tracking-tight">Welcome back, {profileName.split(" ")[0]}</h1>
-            <p className="text-slate-500 mt-1">{profileTitle}{profileTitle && profileInstitution ? " · " : ""}{profileInstitution}</p>
+            <h1 className="text-3xl font-display font-bold text-slate-900 tracking-tight">Welcome back, {authUser?.user_metadata?.full_name?.split(" ")[0] || instructorUser.name.split(" ")[0]}</h1>
+            <p className="text-slate-500 mt-1">{instructorUser.title} · {instructorUser.institution}</p>
           </div>
           <div className="text-sm font-medium text-slate-500 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm inline-flex items-center">
             {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
@@ -76,14 +62,7 @@ export default function InstructorDashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Course overview */}
           <motion.div initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }} className="lg:col-span-2 space-y-4">
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <h2 className="text-xl font-display font-bold text-slate-900">Your Courses</h2>
-              <Button variant="outline" size="sm" asChild>
-                <Link href="/instructor/courses/new" className="inline-flex items-center gap-1.5">
-                  <Plus className="w-4 h-4" /> Create course
-                </Link>
-              </Button>
-            </div>
+            <h2 className="text-xl font-display font-bold text-slate-900">Your Courses</h2>
             <div className="space-y-4">
               {instructorCourses.map(course => (
                 <Card key={course.id} className="border-0 shadow-sm">

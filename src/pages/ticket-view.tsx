@@ -1,31 +1,13 @@
 import { useState, useEffect } from "react";
 import { useRoute, Link, useLocation } from "wouter";
-import {
-  ArrowLeft,
-  Clock,
-  AlertCircle,
-  CheckCircle2,
-  ArrowRight,
-  Loader2,
-  XCircle,
-  Sparkles,
-} from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
-import {
-  useTicket,
-  useCourse,
-  useSubmitTicket,
-  useTicketAttempt,
-  useStartNewTicketAttempt,
-  type AttemptStatus,
-} from "@/hooks/use-app-data";
-import { useAuth } from "@/contexts/AuthContext";
-import { useGradeAttempt } from "@/lib/api/ai";
+import { ArrowLeft, Clock, AlertCircle, CheckCircle2, Trophy, ArrowRight, Loader2, Play, ChevronRight, ChevronLeft } from "lucide-react";
+import confetti from "canvas-confetti";
+import Editor from "@monaco-editor/react";
+
+import { useTicket, useCourse, useSubmitTicket } from "@/hooks/use-app-data";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -35,92 +17,55 @@ import {
 } from "@/components/ui/dialog";
 
 export default function TicketView() {
-  const [, params] = useRoute("/courses/:courseId/ticket/:ticketId");
+  const [, params] = useRoute("/courses/:courseId/lesson/:ticketId");
   const [, setLocation] = useLocation();
 
   const courseId = params?.courseId || "";
   const ticketId = params?.ticketId || "";
 
-  const queryClient = useQueryClient();
-  const { data: course, isLoading: courseLoading, isError: courseError } = useCourse(courseId);
-  const { data: ticket, isLoading: ticketLoading, isError: ticketError } = useTicket(
-    courseId,
-    ticketId
-  );
-  const { session } = useAuth();
-  const {
-    data: attemptData,
-    isLoading: attemptLoading,
-    refetch: refetchAttempt,
-  } = useTicketAttempt(courseId, ticketId, {
-    enabled: !!courseId && !!ticketId,
-  });
+  const { data: course, isLoading: courseLoading } = useCourse(courseId);
+  const { data: ticket, isLoading: ticketLoading } = useTicket(courseId, ticketId);
   const submitMutation = useSubmitTicket();
-  const gradeMutation = useGradeAttempt(
-    ticketId,
-    attemptData?.attempt?.id ?? "",
-    { getAccessToken: () => session?.access_token ?? null },
-  );
-
-  const isError = courseError || ticketError;
-  const attempt = attemptData?.attempt ?? null;
-  const deliverableSubmissions = attemptData?.deliverableSubmissions ?? [];
-  const noEnrollment = attemptData?.noEnrollment ?? false;
-  const hasAttemptedBefore = attemptData?.hasAttemptedBefore ?? false;
-  const status: AttemptStatus | undefined = attempt?.status;
-
-  const startNewAttemptMutation = useStartNewTicketAttempt();
 
   const [content, setContent] = useState("");
+  const [consoleOutput, setConsoleOutput] = useState("");
+  const [isRunning, setIsRunning] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [isAutoGrading, setIsAutoGrading] = useState(false);
-  const [checkedItems, setCheckedItems] = useState<Record<number, boolean>>({});
 
-  // Prefill workspace from first deliverable or submission_text when attempt loads
   useEffect(() => {
-    if (!attempt || status !== "in_progress") return;
-    const firstContent =
-      deliverableSubmissions[0]?.content ?? attempt.submission_text ?? "";
-    if (firstContent && !content) setContent(firstContent);
-  }, [attempt?.id, status, deliverableSubmissions, attempt?.submission_text]);
-
-  const isFormValid = content.trim().length > 10;
-  const canSubmit =
-    status === "in_progress" && isFormValid && !submitMutation.isPending;
-  const isSubmittedPending = status === "submitted" && !attempt?.reviewed_at;
-  const isGraded = status === "passed" || status === "failed";
-
-  const handleSubmit = async () => {
-    if (!canSubmit || !attempt?.id) return;
-
-    await submitMutation.mutateAsync({
-      courseId,
-      ticketId,
-      attemptId: attempt.id,
-      content,
-    });
-    setIsAutoGrading(true);
-    try {
-      await gradeMutation.mutateAsync();
-      await refetchAttempt();
-      queryClient.invalidateQueries({ queryKey: ["courses", courseId] });
-    } catch {
-      // Grading failed; user can use "Grade with AI" manually
-    } finally {
-      setIsAutoGrading(false);
+    if (ticket?.starterCode) {
+      setContent(ticket.starterCode);
     }
-    setShowSuccess(true);
+  }, [ticket]);
+
+  const handleRun = async () => {
+    setIsRunning(true);
+    setConsoleOutput("");
+    // Simulate compilation or runtime
+    await new Promise(r => setTimeout(r, 800));
+    setConsoleOutput(ticket?.expectedOutput || "Run successful.\n> No output found.");
+    setIsRunning(false);
   };
 
-  const handleGradeWithAI = async () => {
-    if (!attempt?.id || gradeMutation.isPending) return;
-    try {
-      await gradeMutation.mutateAsync();
-      await refetchAttempt();
-      queryClient.invalidateQueries({ queryKey: ["courses", courseId] });
-    } catch {
-      // Error already handled by mutation
-    }
+  const handleSubmit = async () => {
+    await submitMutation.mutateAsync({ courseId, ticketId, content });
+
+    // Trigger confetti
+    const duration = 3 * 1000;
+    const animationEnd = Date.now() + duration;
+    const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 100 };
+
+    const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
+
+    const interval: any = setInterval(function () {
+      const timeLeft = animationEnd - Date.now();
+      if (timeLeft <= 0) return clearInterval(interval);
+      const particleCount = 50 * (timeLeft / duration);
+      confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } }));
+      confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } }));
+    }, 250);
+
+    setShowSuccess(true);
   };
 
   const handleNext = () => {
@@ -128,358 +73,190 @@ export default function TicketView() {
     setLocation(`/courses/${courseId}`);
   };
 
-  const handleReviewFeedback = () => {
-    setShowSuccess(false);
-    // Stay on page so user can see feedback panel and workspace
-  };
-
-  const handleRestartTicket = async () => {
-    try {
-      await startNewAttemptMutation.mutateAsync({ courseId, ticketId });
-      await refetchAttempt();
-      setContent("");
-      setCheckedItems({});
-    } catch {
-      // Error handled by mutation
-    }
-  };
-
-  if (isError) {
-    return (
-      <div className="min-h-screen bg-slate-50 p-6 flex flex-col items-center justify-center gap-4">
-        <h1 className="text-xl font-bold text-slate-900">Ticket not found</h1>
-        <p className="text-slate-500 text-center">
-          This ticket may not exist or you may not have access to it.
-        </p>
-        <Button variant="outline" asChild>
-          <Link href={courseId ? `/courses/${courseId}` : "/courses"}>
-            <ArrowLeft className="w-4 h-4 mr-2" /> Back to course
-          </Link>
-        </Button>
-      </div>
-    );
-  }
-
-  if (noEnrollment && !attemptLoading && course && !courseLoading) {
-    return (
-      <div className="min-h-screen bg-slate-50 p-6 flex flex-col items-center justify-center gap-4">
-        <h1 className="text-xl font-bold text-slate-900">Enroll to start</h1>
-        <p className="text-slate-500 text-center">
-          You need to enroll in this course before you can work on tickets.
-        </p>
-        <Button variant="outline" asChild>
-          <Link href={courseId ? `/courses/${courseId}` : "/courses"}>
-            <ArrowLeft className="w-4 h-4 mr-2" /> Back to course
-          </Link>
-        </Button>
-      </div>
-    );
-  }
-
   if (courseLoading || ticketLoading || !ticket || !course) {
     return (
-      <div className="min-h-screen bg-slate-50 p-6">
-        <Skeleton className="h-6 w-48 mb-8" />
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <Skeleton className="h-[600px] rounded-2xl" />
-          <Skeleton className="h-[600px] rounded-2xl" />
+      <div className="min-h-screen bg-slate-50 p-6 flex flex-col">
+        <Skeleton className="h-16 w-full mb-2 bg-secondary" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 flex-1">
+          <Skeleton className="h-full rounded-sm bg-secondary" />
+          <Skeleton className="h-full rounded-sm bg-secondary" />
+          <Skeleton className="h-full rounded-sm bg-secondary" />
         </div>
       </div>
     );
   }
 
-  const deliverablesList =
-    ticket.deliverables ?? [
-      "Review context and requirements",
-      "Formulate structured solution",
-      "Document findings and reasoning",
-    ];
+  // Derive title to display in left pane (Codecademy style)
+  const isPython = course.title.toLowerCase().includes("python");
+  const fileName = isPython ? "main.py" : "index.js";
+  const language = isPython ? "python" : "javascript";
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between shrink-0 sticky top-0 z-10">
+    <div className="h-screen w-full bg-[#1e1e2e] flex flex-col font-sans overflow-hidden text-slate-300">
+      {/* Top Header */}
+      <header className="h-14 bg-[#181825] border-b border-[#313244] px-4 flex items-center justify-between shrink-0 shadow-sm z-10">
         <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            asChild
-            className="text-slate-500 hover:text-slate-900"
-          >
+          <Button variant="ghost" size="icon" asChild className="text-slate-400 hover:text-white rounded-md hover:bg-[#313244] transition-colors h-8 w-8">
             <Link href={`/courses/${courseId}`}>
-              <ArrowLeft className="w-4 h-4 mr-2" /> Back to {course.title}
+              <ArrowLeft className="w-4 h-4" />
             </Link>
           </Button>
+          <span className="font-bold text-white tracking-wide text-sm">{course.title}</span>
         </div>
-        <div className="flex items-center gap-3">
-          <Badge variant="outline" className="bg-slate-50 font-medium">
-            <Clock className="w-3.5 h-3.5 mr-1.5 text-slate-400" />
-            Est. {ticket.durationEstimate}
+        <div className="flex items-center gap-4">
+          <Badge variant="outline" className="bg-[#181825] border-[#313244] text-slate-300 font-semibold rounded-md px-3 py-1">
+            <Clock className="w-3 h-3 mr-2 text-blue-400" />
+            {ticket.durationEstimate}
           </Badge>
-          {ticket.isUrgent && (
-            <Badge className="bg-red-50 text-red-600 border-red-100 shadow-none">
-              <AlertCircle className="w-3.5 h-3.5 mr-1.5" /> Urgent
-            </Badge>
-          )}
-          {status === "submitted" && (
-            <Badge className="bg-amber-50 text-amber-700 border-amber-200">
-              <Clock className="w-3.5 h-3.5 mr-1.5" /> Pending review
-            </Badge>
-          )}
-          {status === "passed" && (
-            <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200">
-              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Passed
-            </Badge>
-          )}
-          {status === "failed" && (
-            <Badge className="bg-red-50 text-red-600 border-red-200">
-              <XCircle className="w-3.5 h-3.5 mr-1.5" /> Needs improvement
-            </Badge>
-          )}
+          <Button variant="ghost" size="sm" className="hidden lg:flex text-slate-400 hover:text-white h-8 text-xs font-semibold hover:bg-[#313244] tracking-wide rounded-md">
+            Get Unstuck
+          </Button>
+          <div className="w-8 h-8 rounded-full bg-violet-600 flex items-center justify-center text-white font-bold text-xs ml-2 cursor-pointer border border-[#313244]">
+            D
+          </div>
         </div>
       </header>
 
-      <main className="flex-1 overflow-hidden p-4 md:p-6 lg:p-8">
-        <div className="max-w-7xl mx-auto h-full grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
-          <div className="lg:col-span-5 flex flex-col h-full space-y-6 overflow-y-auto pr-2 pb-8 lg:pb-0">
-            <div>
-              <div className="text-sm font-bold text-primary uppercase tracking-wider mb-2">
-                {ticket.type} Ticket
-              </div>
-              <h1 className="text-2xl md:text-3xl font-display font-bold text-slate-900 leading-tight">
-                {ticket.title}
-              </h1>
+      {/* Main 3-pane Layout */}
+      <main className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-12">
+        {/* Pane 1: Instructions (Left) - White Background */}
+        <div className="lg:col-span-4 bg-white text-slate-900 flex flex-col h-full border-r-2 border-slate-200">
+          <div className="p-4 border-b border-slate-200 flex items-center justify-between shrink-0">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{course.title.toUpperCase()}</span>
+            <div className="w-4 flex flex-col gap-[2px] cursor-pointer opacity-50 hover:opacity-100">
+              <div className="w-full h-[2px] bg-slate-900" />
+              <div className="w-full h-[2px] bg-slate-900" />
+              <div className="w-full h-[2px] bg-slate-900" />
             </div>
-
-            <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-              <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">
-                The Scenario
-              </h2>
-              <p className="text-slate-700 leading-relaxed text-[15px]">
-                {ticket.scenario ??
-                  "A standard operational request has been assigned to you. Review the required deliverables and submit your structured work."}
-              </p>
-            </div>
-
-            <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex-1">
-              <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">
-                Required Deliverables
-              </h2>
-              <div className="space-y-4">
-                {deliverablesList.map((item, idx) => (
-                  <div key={idx} className="flex items-start gap-3">
-                    <Checkbox
-                      id={`chk-${idx}`}
-                      className="mt-0.5 rounded-[4px] data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500"
-                      checked={checkedItems[idx] || false}
-                      onCheckedChange={(checked) =>
-                        setCheckedItems((prev) => ({ ...prev, [idx]: !!checked }))
-                      }
-                    />
-                    <label
-                      htmlFor={`chk-${idx}`}
-                      className={`text-sm leading-snug cursor-pointer transition-colors ${
-                        checkedItems[idx]
-                          ? "text-slate-400 line-through"
-                          : "text-slate-700 font-medium"
-                      }`}
-                    >
+          </div>
+          
+          <div className="p-6 md:p-8 overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-slate-200">
+            {ticket.lessonContent ? (
+              <div className="prose prose-slate prose-h1:text-2xl prose-h1:font-display prose-h1:font-bold prose-h1:mb-3 prose-p:text-[15px] prose-p:leading-relaxed prose-a:text-blue-600 prose-code:bg-slate-100 prose-code:text-rose-600 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:text-[13px] prose-code:font-mono max-w-none" dangerouslySetInnerHTML={{ __html: ticket.lessonContent }} />
+            ) : (
+              <div>
+                <h1 className="text-2xl font-display font-bold mb-4">{ticket.title}</h1>
+                <p className="text-slate-600 text-[15px] leading-relaxed">
+                  {ticket.scenario || "A standard operational request has been assigned to you. Review the required deliverables and submit your structured work."}
+                </p>
+                
+                <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mt-8 mb-4">Required Deliverables</h2>
+                <ul className="space-y-3">
+                  {(ticket.deliverables || ["Implement the requested feature", "Verify code compiles without errors"]).map((item, idx) => (
+                    <li key={idx} className="flex gap-3 text-[15px] text-slate-700">
+                      <div className="mt-1 w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
                       {item}
-                    </label>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {(isGraded && (attempt?.ai_score != null || attempt?.ai_review_text)) && (
-              <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-                <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">
-                  Feedback
-                </h2>
-                {attempt?.ai_score != null && (
-                  <p className="text-sm font-semibold text-slate-700 mb-2">
-                    Score: {attempt.ai_score}%
-                  </p>
-                )}
-                {attempt?.ai_review_text ? (
-                  <p className="text-slate-700 text-[15px] leading-relaxed whitespace-pre-wrap">
-                    {attempt.ai_review_text}
-                  </p>
-                ) : (
-                  <p className="text-slate-500 text-sm">No written feedback for this attempt.</p>
-                )}
-              </div>
-            )}
-            {isGraded &&
-              deliverableSubmissions.some(
-                (sub) => sub.ai_score != null || (sub.ai_feedback != null && sub.ai_feedback !== "")
-              ) && (
-              <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-                <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">
-                  Feedback by deliverable
-                </h2>
-                <div className="space-y-4">
-                  {deliverableSubmissions.map((sub, idx) => {
-                    if (sub.ai_score == null && (!sub.ai_feedback || sub.ai_feedback === ""))
-                      return null;
-                    const label = deliverablesList[idx] ?? `Deliverable ${idx + 1}`;
-                    return (
-                      <div
-                        key={sub.id}
-                        className="rounded-xl border border-slate-100 bg-slate-50/50 p-4"
-                      >
-                        <p className="text-sm font-semibold text-slate-700 mb-1">{label}</p>
-                        {sub.ai_score != null && (
-                          <p className="text-xs text-slate-500 mb-2">Score: {sub.ai_score}%</p>
-                        )}
-                        {sub.ai_feedback && (
-                          <p className="text-slate-700 text-[14px] leading-relaxed whitespace-pre-wrap">
-                            {sub.ai_feedback}
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
           </div>
+        </div>
 
-          <div className="lg:col-span-7 flex flex-col h-full bg-white rounded-2xl border border-slate-200 shadow-md overflow-hidden relative">
-            <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center shrink-0 flex-wrap gap-2">
-              <span className="font-semibold text-slate-700">Your Workspace</span>
-              {isGraded && attempt?.ai_score != null && (
-                <span
-                  className={`text-sm font-bold px-3 py-1 rounded-lg ${
-                    status === "passed"
-                      ? "bg-emerald-100 text-emerald-800"
-                      : "bg-amber-100 text-amber-800"
-                  }`}
-                >
-                  Your grade: {attempt.ai_score}%
-                </span>
-              )}
+        {/* Pane 2: Editor (Middle) - Dark */}
+        <div className="lg:col-span-5 bg-[#1e1e2e] flex flex-col h-full border-r border-[#313244]">
+          <div className="h-10 bg-[#181825] flex items-end shrink-0 px-2 pt-2 border-b border-[#313244]">
+            <div className="bg-[#1e1e2e] text-slate-200 px-4 py-1.5 text-xs font-mono rounded-t-lg border-t border-x border-[#313244] border-b-transparent relative z-10 opacity-100 flex items-center gap-2">
+              {fileName}
+              <button className="opacity-50 hover:opacity-100 text-[10px]">x</button>
             </div>
+          </div>
+          <div className="flex-1 py-4 pt-4">
+            <Editor
+              height="100%"
+              defaultLanguage={language}
+              theme="vs-dark"
+              value={content}
+              onChange={(val) => setContent(val || "")}
+              options={{
+                minimap: { enabled: false },
+                fontSize: 14,
+                fontFamily: "var(--font-mono)",
+                lineHeight: 24,
+                padding: { top: 8 },
+                scrollBeyondLastLine: false,
+                renderLineHighlight: "all",
+                hideCursorInOverviewRuler: true,
+                overviewRulerBorder: false,
+                scrollbar: {
+                  verticalSliderSize: 6,
+                  horizontalSliderSize: 6
+                }
+              }}
+            />
+          </div>
+        </div>
 
-            <div className="flex-1 p-0 relative">
-              <Textarea
-                placeholder="Structure your solution, code, or analysis here..."
-                className="w-full h-full min-h-[400px] border-0 focus-visible:ring-0 rounded-none resize-none p-6 text-base text-slate-800 placeholder:text-slate-300 leading-relaxed font-mono"
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                readOnly={isGraded || isSubmittedPending}
-                disabled={attemptLoading}
-              />
-            </div>
-
-            <div className="p-4 border-t border-slate-100 bg-slate-50/50 shrink-0 flex items-center justify-between flex-wrap gap-2">
-              <p className="text-xs text-slate-500 font-medium">
-                {content.length > 0
-                  ? `${content.length} characters`
-                  : "Waiting for input..."}
-              </p>
-              <div className="flex items-center gap-2">
-                {isGraded && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleRestartTicket}
-                    disabled={startNewAttemptMutation.isPending}
-                  >
-                    {startNewAttemptMutation.isPending ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Restarting...
-                      </>
-                    ) : (
-                      "Restart ticket"
-                    )}
-                  </Button>
-                )}
-                {isSubmittedPending && (
-                  <>
-                    {isAutoGrading || gradeMutation.isPending ? (
-                      <span className="text-sm text-slate-500 flex items-center gap-2">
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        {isAutoGrading ? "Grading your submission…" : "Grading…"}
-                      </span>
-                    ) : (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleGradeWithAI}
-                        disabled={gradeMutation.isPending}
-                      >
-                        <Sparkles className="w-4 h-4 mr-2" />
-                        Grade with AI
-                      </Button>
-                    )}
-                  </>
-                )}
-                {status === "in_progress" && (
-                  <Button
-                    onClick={handleSubmit}
-                    disabled={!canSubmit}
-                    className="shadow-md shadow-primary/20 hover:shadow-lg transition-all min-w-[140px]"
-                  >
-                    {submitMutation.isPending ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Submitting...
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle2 className="w-4 h-4 mr-2" />
-                        {hasAttemptedBefore ? "Reattempt" : "Submit Work"}
-                      </>
-                    )}
-                  </Button>
-                )}
-              </div>
-            </div>
+        {/* Pane 3: Console Output (Right) - Darker */}
+        <div className="lg:col-span-3 bg-[#11111b] flex flex-col h-full relative">
+          <div className="h-10 border-b border-[#313244] flex items-center px-4 shrink-0 justify-between bg-[#11111b]">
+            <span className="text-[11px] font-bold text-slate-500 tracking-widest uppercase">Output</span>
+            {isRunning && <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-500" />}
+          </div>
+          <div className="flex-1 p-4 font-mono text-[13px] text-slate-300 leading-relaxed overflow-y-auto whitespace-pre-wrap">
+            {consoleOutput}
           </div>
         </div>
       </main>
 
+      {/* Footer Workspace Action Bar */}
+      <footer className="h-14 bg-[#181825] border-t border-[#313244] flex items-center justify-between px-4 shrink-0 z-10">
+        {/* Left: Run */}
+        <div className="flex-1 flex justify-start">
+          <Button
+            onClick={handleRun}
+            disabled={isRunning}
+            className="bg-[#facc15] text-amber-950 hover:bg-[#fde047] font-bold h-9 min-w-[80px] rounded-md shadow-none transition-colors border border-[#ca8a04]"
+          >
+            {isRunning ? <Loader2 className="w-4 h-4 animate-spin" /> : "Run"}
+          </Button>
+        </div>
+
+        {/* Center: Pagination indicator */}
+        <div className="flex-1 flex justify-center">
+          <span className="text-slate-400 text-xs font-bold tracking-wide">
+            {ticket.id.split('_').pop()}/13
+          </span>
+        </div>
+
+        {/* Right: Navigation */}
+        <div className="flex-1 flex justify-end items-center gap-2">
+          <Button variant="ghost" size="sm" asChild className="h-8 bg-[#313244]/50 border border-[#313244] hover:bg-[#313244] text-slate-300 rounded-md font-semibold text-xs px-3">
+            <Link href={`/courses/${courseId}`}>
+              <ChevronLeft className="w-3 h-3 mr-1" /> Back
+            </Link>
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={submitMutation.isPending}
+            variant="secondary"
+            size="sm"
+            className="h-8 bg-blue-600 hover:bg-blue-500 text-white border border-blue-500 hover:border-blue-400 rounded-md font-semibold text-xs px-3 ml-2"
+          >
+            {submitMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : undefined}
+            Submit Next <ChevronRight className="w-3 h-3 ml-1" />
+          </Button>
+        </div>
+      </footer>
+
+      {/* Success Modal */}
       <Dialog open={showSuccess} onOpenChange={setShowSuccess}>
-        <DialogContent className="sm:max-w-md text-center p-8 rounded-3xl border-0 shadow-2xl">
-          <div className="mx-auto w-16 h-16 bg-emerald-100 text-emerald-500 rounded-full flex items-center justify-center mb-6">
-            <CheckCircle2 className="w-8 h-8" />
+        <DialogContent className="sm:max-w-md text-center p-8 border-0 bg-[#1e1e2e] shadow-2xl rounded-xl">
+          <div className="mx-auto w-20 h-20 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-2xl flex items-center justify-center mb-6">
+            <Trophy className="w-10 h-10" />
           </div>
           <DialogHeader>
-            <DialogTitle className="text-2xl font-display font-bold text-center">
-              Submitted
-            </DialogTitle>
+            <DialogTitle className="text-2xl font-display font-bold text-center text-white">Lesson Completed!</DialogTitle>
           </DialogHeader>
           <div className="py-4">
-            {isGraded && attempt?.ai_score != null && (
-              <p className="text-lg font-bold text-slate-800 mb-3">
-                Your grade: {attempt.ai_score}%
-              </p>
-            )}
-            <p className="text-slate-500 mb-6 text-[15px]">
-              {isGraded
-                ? "Your solution has been submitted and graded. Choose \"Review feedback\" to see your feedback on this page, or \"Back to course\" when done."
-                : "Your solution has been recorded. Use \"Grade with AI\" on this page to get feedback, or wait for instructor review."}
+            <p className="text-slate-400 mb-6 text-sm leading-relaxed">
+              Great progress. You successfully completed this exercise and learned a new concept.
             </p>
           </div>
-          <DialogFooter className="sm:justify-center flex-col-reverse sm:flex-row gap-2">
-            {isGraded && (
-              <Button
-                size="lg"
-                variant="outline"
-                onClick={handleNext}
-                className="w-full sm:w-auto"
-              >
-                Back to course <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            )}
-            <Button
-              size="lg"
-              onClick={isGraded ? handleReviewFeedback : handleNext}
-              className="w-full sm:w-auto shadow-lg shadow-primary/20"
-            >
-              {isGraded ? "Review feedback" : <>Back to course <ArrowRight className="w-4 h-4 ml-2" /></>}
+          <DialogFooter className="sm:justify-center">
+            <Button size="lg" onClick={handleNext} className="w-full sm:w-auto font-bold bg-blue-600 text-white hover:bg-blue-500 rounded-lg">
+              Continue Course <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </DialogFooter>
         </DialogContent>
